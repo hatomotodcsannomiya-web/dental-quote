@@ -1,13 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import dynamic from "next/dynamic";
-
-const PDFDownloadLink = dynamic(
-  () => import("@react-pdf/renderer").then((mod) => mod.PDFDownloadLink),
-  { ssr: false }
-);
-const QuotePDF = dynamic(() => import("@/components/QuotePDF"), { ssr: false });
 
 interface QuoteItem {
   id: number;
@@ -34,6 +27,7 @@ export default function QuotesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState({ patientId: "", patientName: "" });
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [pdfLoadingId, setPdfLoadingId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,16 +49,36 @@ export default function QuotesPage() {
     });
   }
 
-  function toPDFItems(quote: Quote) {
-    return quote.items.map((item) => ({
-      toothId: "",
-      toothLabel: item.toothLabel,
-      treatmentId: 0,
-      treatmentName: item.treatment.name,
-      categoryName: item.treatment.category.name,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-    }));
+  async function downloadPDF(quote: Quote) {
+    setPdfLoadingId(quote.id);
+    try {
+      const createdAt = new Date(quote.createdAt).toLocaleDateString("ja-JP", {
+        year: "numeric", month: "long", day: "numeric",
+      });
+      const items = quote.items.map((item) => ({
+        toothId: "",
+        toothLabel: item.toothLabel,
+        treatmentId: 0,
+        treatmentName: item.treatment.name,
+        categoryName: item.treatment.category.name,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+      }));
+      const res = await fetch("/api/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items, createdAt }),
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `見積書_${quote.patientId ?? quote.patientName}_${quote.id}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setPdfLoadingId(null);
+    }
   }
 
   return (
@@ -80,7 +94,6 @@ export default function QuotesPage() {
       </header>
 
       <div className="max-w-5xl mx-auto px-4 py-6">
-        {/* 検索 */}
         <div className="bg-white rounded-xl shadow-sm p-4 mb-4 flex flex-wrap gap-3 items-end">
           <div>
             <label className="block text-xs text-gray-500 mb-1">患者ID</label>
@@ -170,20 +183,14 @@ export default function QuotesPage() {
                         <span>税 ¥{quote.tax.toLocaleString()}</span>
                         <span className="font-semibold text-gray-700">合計 ¥{quote.total.toLocaleString()}</span>
                       </div>
-                      <PDFDownloadLink
-                        document={<QuotePDF items={toPDFItems(quote)} createdAt={new Date(quote.createdAt).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" })} />}
-                        fileName={`見積書_${quote.patientId ?? quote.patientName}_${quote.id}.pdf`}
+                      <button
+                        type="button"
+                        onClick={() => downloadPDF(quote)}
+                        disabled={pdfLoadingId === quote.id}
+                        className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
                       >
-                        {({ loading: pdfLoading }) => (
-                          <button
-                            type="button"
-                            disabled={pdfLoading}
-                            className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                          >
-                            PDFダウンロード
-                          </button>
-                        )}
-                      </PDFDownloadLink>
+                        {pdfLoadingId === quote.id ? "生成中..." : "PDFダウンロード"}
+                      </button>
                     </div>
                     {quote.memo && (
                       <p className="mt-2 text-xs text-gray-400 italic">メモ：{quote.memo}</p>

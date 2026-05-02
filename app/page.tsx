@@ -1,18 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import dynamic from "next/dynamic";
 import DentalChart from "@/components/DentalChart";
 import TreatmentAssigner from "@/components/TreatmentAssigner";
 import MultiToothAssigner from "@/components/MultiToothAssigner";
 import type { CategoryWithTreatments, QuoteLineItem } from "@/lib/types";
 import { getToothById } from "@/lib/teeth";
-
-const PDFDownloadLink = dynamic(
-  () => import("@react-pdf/renderer").then((mod) => mod.PDFDownloadLink),
-  { ssr: false }
-);
-const QuotePDF = dynamic(() => import("@/components/QuotePDF"), { ssr: false });
 
 const TAX_RATE = 0.1;
 const NO_TOOTH_ID = "__none__";
@@ -82,6 +75,31 @@ export default function Home() {
       setSaved(true);
     } finally {
       setSaving(false);
+    }
+  }
+
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  async function downloadPDF() {
+    setPdfLoading(true);
+    try {
+      const createdAtStr = new Date().toLocaleDateString("ja-JP", {
+        year: "numeric", month: "long", day: "numeric",
+      });
+      const res = await fetch("/api/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items, createdAt: createdAtStr }),
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `見積書_${patientId || patientName || "患者"}_${createdAtStr.replace(/[年月日]/g, "-")}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setPdfLoading(false);
     }
   }
 
@@ -337,20 +355,14 @@ export default function Home() {
                 {saving ? "保存中..." : saved ? "✓ 保存済み" : "履歴に保存"}
               </button>
 
-              <PDFDownloadLink
-                document={<QuotePDF items={items} createdAt={createdAt} />}
-                fileName={`見積書_${patientId || patientName || "患者"}_${createdAt.replace(/[年月日]/g, "-")}.pdf`}
+              <button
+                type="button"
+                onClick={downloadPDF}
+                disabled={pdfLoading}
+                className="bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold text-sm hover:bg-blue-700 disabled:opacity-60 transition-all shadow"
               >
-                {({ loading: pdfLoading }) => (
-                  <button
-                    type="button"
-                    disabled={pdfLoading}
-                    className="bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold text-sm hover:bg-blue-700 disabled:opacity-60 transition-all shadow"
-                  >
-                    {pdfLoading ? "PDF生成中..." : "PDFをダウンロード"}
-                  </button>
-                )}
-              </PDFDownloadLink>
+                {pdfLoading ? "PDF生成中..." : "PDFをダウンロード"}
+              </button>
             </div>
           </>
         )}
