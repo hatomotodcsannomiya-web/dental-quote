@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import DentalChart from "@/components/DentalChart";
 import TreatmentAssigner from "@/components/TreatmentAssigner";
+import MultiToothAssigner from "@/components/MultiToothAssigner";
 import type { CategoryWithTreatments, QuoteLineItem } from "@/lib/types";
 import { getToothById } from "@/lib/teeth";
 
@@ -234,6 +235,11 @@ export default function Home() {
                 onRemove={removeItem}
                 globalItems={items}
                 noTooth
+              />
+
+              <MultiToothAssigner
+                categories={categories}
+                onAdd={addItem}
               />
             </div>
 

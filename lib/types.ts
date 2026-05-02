@@ -17,8 +17,9 @@ export interface CategoryWithTreatments {
 }
 
 export interface QuoteLineItem {
-  toothId: string;
-  toothLabel: string;
+  toothId: string;        // "__none__" | "__multi__" | 単一歯ID
+  toothLabel: string;     // 表示用文字列
+  toothIds?: string[];    // 複数歯指定時のID一覧
   treatmentId: number;
   treatmentName: string;
   categoryName: string;
