@@ -3,8 +3,11 @@ import type { QuoteLineItem } from "@/lib/types";
 
 const TAX_RATE = 0.1;
 
+const FONT = "NotoSansJP";
+
 const styles = StyleSheet.create({
   page: {
+    fontFamily: FONT,
     padding: 40,
     fontSize: 10,
     color: "#222",
