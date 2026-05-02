@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import DentalChart from "@/components/DentalChart";
 import TreatmentAssigner from "@/components/TreatmentAssigner";
 import type { CategoryWithTreatments, QuoteLineItem } from "@/lib/types";
-import type { ToothType } from "@/lib/teeth";
 import { getToothById } from "@/lib/teeth";
 
 const PDFDownloadLink = dynamic(
@@ -15,15 +14,20 @@ const PDFDownloadLink = dynamic(
 const QuotePDF = dynamic(() => import("@/components/QuotePDF"), { ssr: false });
 
 const TAX_RATE = 0.1;
+const NO_TOOTH_ID = "__none__";
+const NO_TOOTH_LABEL = "部位指定なし";
 
 export default function Home() {
-  const [mode, setMode] = useState<ToothType>("permanent");
   const [selectedTeeth, setSelectedTeeth] = useState<Set<string>>(new Set());
   const [categories, setCategories] = useState<CategoryWithTreatments[]>([]);
   const [items, setItems] = useState<QuoteLineItem[]>([]);
   const [patientName, setPatientName] = useState("");
+  const [patientId, setPatientId] = useState("");
+  const [memo, setMemo] = useState("");
   const [step, setStep] = useState<"select" | "assign" | "confirm">("select");
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     fetch("/api/treatments")
@@ -55,14 +59,37 @@ export default function Home() {
     setItems((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
+  async function saveQuote() {
+    if (items.length === 0) return;
+    setSaving(true);
+    try {
+      await fetch("/api/quotes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientName: patientName || "（氏名未入力）",
+          patientId: patientId || null,
+          memo: memo || null,
+          items: items.map((item) => ({
+            treatmentId: item.treatmentId,
+            toothLabel: item.toothLabel,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+          })),
+        }),
+      });
+      setSaved(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const subtotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const tax = Math.floor(subtotal * TAX_RATE);
   const total = subtotal + tax;
 
   const createdAt = new Date().toLocaleDateString("ja-JP", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
+    year: "numeric", month: "long", day: "numeric",
   });
 
   const selectedTeethArray = Array.from(selectedTeeth);
@@ -90,19 +117,33 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <h1 className="text-lg font-bold text-blue-800">自費診療 見積書作成</h1>
           <StepIndicator current={step} />
-          <a href="/admin" className="text-xs text-gray-400 hover:text-gray-600">管理</a>
+          <div className="flex gap-3">
+            <a href="/quotes" className="text-xs text-blue-500 hover:text-blue-700">履歴</a>
+            <a href="/admin" className="text-xs text-gray-400 hover:text-gray-600">管理</a>
+          </div>
         </div>
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
 
+        {/* Step 1: 患者情報 & 歯選択 */}
         {step === "select" && (
           <>
             <div className="bg-white rounded-xl shadow-sm p-5">
-              <h2 className="text-base font-semibold text-gray-800 mb-3">① 患者名・モード選択</h2>
-              <div className="flex flex-col sm:flex-row gap-4 items-start">
+              <h2 className="text-base font-semibold text-gray-800 mb-3">① 患者情報入力</h2>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">患者ID</label>
+                  <input
+                    type="text"
+                    value={patientId}
+                    onChange={(e) => setPatientId(e.target.value)}
+                    placeholder="例：P001"
+                    className="border border-gray-300 rounded-lg px-3 py-2 w-full sm:w-32 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
                 <div className="flex-1">
-                  <label className="block text-sm text-gray-600 mb-1">患者名（PDF非表示）</label>
+                  <label className="block text-xs text-gray-500 mb-1">患者名（PDF非表示）</label>
                   <input
                     type="text"
                     value={patientName}
@@ -111,48 +152,37 @@ export default function Home() {
                     className="border border-gray-300 rounded-lg px-3 py-2 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">歯種</label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => { setMode("permanent"); setSelectedTeeth(new Set()); setItems([]); }}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${mode === "permanent" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-                    >
-                      永久歯
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setMode("deciduous"); setSelectedTeeth(new Set()); setItems([]); }}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${mode === "deciduous" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-                    >
-                      乳歯
-                    </button>
-                  </div>
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-500 mb-1">メモ（任意）</label>
+                  <input
+                    type="text"
+                    value={memo}
+                    onChange={(e) => setMemo(e.target.value)}
+                    placeholder="備考など"
+                    className="border border-gray-300 rounded-lg px-3 py-2 w-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
                 </div>
               </div>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm p-5">
-              <h2 className="text-base font-semibold text-gray-800 mb-3">
+              <h2 className="text-base font-semibold text-gray-800 mb-1">
                 ② 治療する歯をクリック
                 {selectedTeeth.size > 0 && (
-                  <span className="ml-2 text-sm font-normal text-blue-600">
-                    {selectedTeeth.size}本選択中
-                  </span>
+                  <span className="ml-2 text-sm font-normal text-blue-600">{selectedTeeth.size}本選択中</span>
                 )}
               </h2>
+              <p className="text-xs text-gray-400 mb-3">○＝乳歯　□＝永久歯　（歯を選ばずに次へ進むことも可能です）</p>
               <div className="overflow-x-auto">
-                <DentalChart mode={mode} selectedTeeth={selectedTeeth} onToggle={toggleTooth} />
+                <DentalChart selectedTeeth={selectedTeeth} onToggle={toggleTooth} />
               </div>
             </div>
 
             <div className="flex justify-end">
               <button
                 type="button"
-                disabled={selectedTeeth.size === 0}
                 onClick={() => setStep("assign")}
-                className="bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold text-sm hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow"
+                className="bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold text-sm hover:bg-blue-700 transition-all shadow"
               >
                 治療を割り当てる →
               </button>
@@ -160,22 +190,19 @@ export default function Home() {
           </>
         )}
 
+        {/* Step 2: 治療割り当て */}
         {step === "assign" && (
           <>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setStep("select")}
-                className="text-sm text-gray-500 hover:text-gray-700"
-              >
-                ← 歯の選択に戻る
+            <div className="flex items-center">
+              <button type="button" onClick={() => setStep("select")} className="text-sm text-gray-500 hover:text-gray-700">
+                ← 患者情報・歯選択に戻る
               </button>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm p-4 mb-2">
+            <div className="bg-white rounded-xl shadow-sm p-4">
               <p className="text-xs text-gray-500 mb-2">歯をクリックして選択/解除できます</p>
               <div className="overflow-x-auto">
-                <DentalChart mode={mode} selectedTeeth={selectedTeeth} onToggle={toggleTooth} />
+                <DentalChart selectedTeeth={selectedTeeth} onToggle={toggleTooth} />
               </div>
             </div>
 
@@ -196,6 +223,18 @@ export default function Home() {
                   />
                 );
               })}
+
+              <TreatmentAssigner
+                key={NO_TOOTH_ID}
+                toothId={NO_TOOTH_ID}
+                toothLabel={NO_TOOTH_LABEL}
+                categories={categories}
+                existing={items.filter((i) => i.toothId === NO_TOOTH_ID)}
+                onAdd={addItem}
+                onRemove={removeItem}
+                globalItems={items}
+                noTooth
+              />
             </div>
 
             <div className="flex justify-end">
@@ -211,22 +250,21 @@ export default function Home() {
           </>
         )}
 
+        {/* Step 3: 確認・保存・PDF */}
         {step === "confirm" && (
           <>
-            <button
-              type="button"
-              onClick={() => setStep("assign")}
-              className="text-sm text-gray-500 hover:text-gray-700"
-            >
+            <button type="button" onClick={() => setStep("assign")} className="text-sm text-gray-500 hover:text-gray-700">
               ← 治療割り当てに戻る
             </button>
 
             <div className="bg-white rounded-xl shadow-sm p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-base font-semibold text-gray-800">見積もり内容</h2>
-                {patientName && (
-                  <span className="text-sm text-gray-500">患者名：{patientName}</span>
-                )}
+                <div className="text-right text-xs text-gray-500 space-y-0.5">
+                  {patientId && <p>患者ID：{patientId}</p>}
+                  {patientName && <p>患者名：{patientName}</p>}
+                  {memo && <p>メモ：{memo}</p>}
+                </div>
               </div>
 
               <table className="w-full text-sm">
@@ -255,22 +293,15 @@ export default function Home() {
               </table>
 
               <div className="mt-4 flex flex-col items-end gap-1 text-sm">
-                <div className="flex gap-8">
-                  <span className="text-gray-500">小計（税抜）</span>
-                  <span>¥{subtotal.toLocaleString()}</span>
-                </div>
-                <div className="flex gap-8">
-                  <span className="text-gray-500">消費税（10%）</span>
-                  <span>¥{tax.toLocaleString()}</span>
-                </div>
+                <div className="flex gap-8"><span className="text-gray-500">小計（税抜）</span><span>¥{subtotal.toLocaleString()}</span></div>
+                <div className="flex gap-8"><span className="text-gray-500">消費税（10%）</span><span>¥{tax.toLocaleString()}</span></div>
                 <div className="flex gap-8 text-base font-bold text-blue-700 border-t pt-2 mt-1">
-                  <span>合計（税込）</span>
-                  <span>¥{total.toLocaleString()}</span>
+                  <span>合計（税込）</span><span>¥{total.toLocaleString()}</span>
                 </div>
               </div>
             </div>
 
-            <div className="flex gap-3 justify-end">
+            <div className="flex flex-wrap gap-3 justify-end">
               <button
                 type="button"
                 onClick={() => {
@@ -278,15 +309,31 @@ export default function Home() {
                   setSelectedTeeth(new Set());
                   setItems([]);
                   setPatientName("");
+                  setPatientId("");
+                  setMemo("");
+                  setSaved(false);
                 }}
                 className="px-6 py-3 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-50"
               >
                 新しい見積もりを作成
               </button>
 
+              <button
+                type="button"
+                onClick={saveQuote}
+                disabled={saving || saved}
+                className={`px-6 py-3 rounded-xl text-sm font-medium transition-all shadow ${
+                  saved
+                    ? "bg-green-100 text-green-700 border border-green-300"
+                    : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                }`}
+              >
+                {saving ? "保存中..." : saved ? "✓ 保存済み" : "履歴に保存"}
+              </button>
+
               <PDFDownloadLink
                 document={<QuotePDF items={items} createdAt={createdAt} />}
-                fileName={`見積書_${createdAt.replace(/[年月日]/g, "-")}.pdf`}
+                fileName={`見積書_${patientId || patientName || "患者"}_${createdAt.replace(/[年月日]/g, "-")}.pdf`}
               >
                 {({ loading: pdfLoading }) => (
                   <button
@@ -308,7 +355,7 @@ export default function Home() {
 
 function StepIndicator({ current }: { current: "select" | "assign" | "confirm" }) {
   const steps = [
-    { key: "select", label: "歯選択" },
+    { key: "select", label: "患者・歯選択" },
     { key: "assign", label: "治療割当" },
     { key: "confirm", label: "確認・PDF" },
   ];
@@ -317,9 +364,7 @@ function StepIndicator({ current }: { current: "select" | "assign" | "confirm" }
       {steps.map((s, i) => (
         <div key={s.key} className="flex items-center gap-2">
           {i > 0 && <span className="text-gray-300">›</span>}
-          <span
-            className={`text-xs px-2 py-1 rounded-full ${current === s.key ? "bg-blue-100 text-blue-700 font-semibold" : "text-gray-400"}`}
-          >
+          <span className={`text-xs px-2 py-1 rounded-full ${current === s.key ? "bg-blue-100 text-blue-700 font-semibold" : "text-gray-400"}`}>
             {s.label}
           </span>
         </div>

@@ -11,9 +11,10 @@ interface Props {
   onAdd: (item: QuoteLineItem) => void;
   onRemove: (index: number) => void;
   globalItems: QuoteLineItem[];
+  noTooth?: boolean;
 }
 
-export default function TreatmentAssigner({ toothId, toothLabel, categories, onAdd, onRemove, globalItems }: Props) {
+export default function TreatmentAssigner({ toothId, toothLabel, categories, onAdd, onRemove, globalItems, noTooth }: Props) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | "">("");
   const [selectedTreatmentId, setSelectedTreatmentId] = useState<number | "">("");
   const [quantity, setQuantity] = useState(1);
@@ -44,11 +45,13 @@ export default function TreatmentAssigner({ toothId, toothLabel, categories, onA
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-3">
-      <h3 className="text-sm font-bold text-blue-700 mb-2">{toothLabel}</h3>
+    <div className={`border rounded-lg p-3 ${noTooth ? "bg-gray-50 border-dashed border-gray-300 col-span-1 sm:col-span-2 lg:col-span-3" : "bg-white border-gray-200"}`}>
+      <h3 className={`text-sm font-bold mb-2 ${noTooth ? "text-gray-500" : "text-blue-700"}`}>
+        {noTooth ? "🦷 部位指定なし（口腔全体・その他）" : toothLabel}
+      </h3>
 
       {toothItems.length > 0 && (
-        <div className="mb-3 space-y-1">
+        <div className={`mb-3 ${noTooth ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1" : "space-y-1"}`}>
           {toothItems.map(({ item, index }) => (
             <div key={index} className="flex items-center justify-between text-xs bg-blue-50 rounded px-2 py-1">
               <span className="text-gray-700">{item.treatmentName} × {item.quantity}</span>
@@ -65,14 +68,14 @@ export default function TreatmentAssigner({ toothId, toothLabel, categories, onA
         </div>
       )}
 
-      <div className="flex flex-col gap-2">
+      <div className={`flex gap-2 ${noTooth ? "flex-wrap items-end" : "flex-col"}`}>
         <select
           value={selectedCategoryId}
           onChange={(e) => {
             setSelectedCategoryId(Number(e.target.value) || "");
             setSelectedTreatmentId("");
           }}
-          className="text-xs border border-gray-300 rounded px-2 py-1 w-full"
+          className={`text-xs border border-gray-300 rounded px-2 py-1 ${noTooth ? "flex-1 min-w-32" : "w-full"}`}
         >
           <option value="">カテゴリを選択</option>
           {categories.map((c) => (
@@ -84,7 +87,7 @@ export default function TreatmentAssigner({ toothId, toothLabel, categories, onA
           <select
             value={selectedTreatmentId}
             onChange={(e) => setSelectedTreatmentId(Number(e.target.value) || "")}
-            className="text-xs border border-gray-300 rounded px-2 py-1 w-full"
+            className={`text-xs border border-gray-300 rounded px-2 py-1 ${noTooth ? "flex-1 min-w-40" : "w-full"}`}
           >
             <option value="">治療を選択</option>
             {selectedCategory.treatments.map((t) => (
@@ -108,7 +111,7 @@ export default function TreatmentAssigner({ toothId, toothLabel, categories, onA
             type="button"
             onClick={handleAdd}
             disabled={!selectedTreatmentId}
-            className="text-xs bg-blue-500 text-white rounded px-3 py-1 hover:bg-blue-600 disabled:opacity-40 ml-auto"
+            className="text-xs bg-blue-500 text-white rounded px-3 py-1 hover:bg-blue-600 disabled:opacity-40"
           >
             追加
           </button>
