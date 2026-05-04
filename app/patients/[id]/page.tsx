@@ -41,6 +41,8 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", memo: "" });
   const [saving, setSaving] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function load() {
     const res = await fetch(`/api/patients/${id}`);
@@ -64,6 +66,12 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     setSaving(false);
     setEditing(false);
     load();
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    await fetch(`/api/patients/${id}`, { method: "DELETE" });
+    router.push("/patients");
   }
 
   async function downloadPDF(quote: Quote) {
@@ -137,13 +145,22 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                 {patient.memo && <p className="text-sm text-gray-500 mt-1">{patient.memo}</p>}
                 <p className="text-xs text-gray-300 mt-2">登録：{formatDate(patient.createdAt)}</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="text-xs text-blue-500 hover:text-blue-700 border border-blue-200 px-3 py-1 rounded-lg"
-              >
-                編集
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="text-xs text-blue-500 hover:text-blue-700 border border-blue-200 px-3 py-1 rounded-lg"
+                >
+                  編集
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="text-xs text-red-400 hover:text-red-600 border border-red-200 px-3 py-1 rounded-lg"
+                >
+                  削除
+                </button>
+              </div>
             </div>
           ) : (
             <div className="space-y-3">
@@ -270,6 +287,37 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
       </div>
+
+      {/* 削除確認ダイアログ */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
+            <h2 className="text-base font-bold text-gray-800 mb-2">患者を削除しますか？</h2>
+            <p className="text-sm text-gray-500 mb-1">
+              <span className="font-semibold text-gray-700">{patient.name}</span>（{patient.code}）を削除します。
+            </p>
+            <p className="text-xs text-gray-400 mb-5">この操作は取り消せません。関連する見積データとの紐付けも解除されます。</p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 bg-red-500 text-white py-2 rounded-xl text-sm font-semibold hover:bg-red-600 disabled:opacity-50"
+              >
+                {deleting ? "削除中..." : "削除する"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

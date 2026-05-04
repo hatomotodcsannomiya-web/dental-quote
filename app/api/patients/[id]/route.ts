@@ -36,3 +36,20 @@ export async function PATCH(
   });
   return Response.json(patient);
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const numId = Number(id);
+
+  // 紐づく見積の患者リンクを解除してから患者を削除
+  await prisma.quote.updateMany({
+    where: { patientFkId: numId },
+    data: { patientFkId: null },
+  });
+  await prisma.patient.delete({ where: { id: numId } });
+
+  return Response.json({ ok: true });
+}
