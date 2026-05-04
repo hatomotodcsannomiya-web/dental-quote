@@ -30,16 +30,28 @@ model Treatment {
   updatedAt  DateTime    @updatedAt
 }
 
+model Patient {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  name      String
+  memo      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  quotes    Quote[]
+}
+
 model Quote {
-  id          Int         @id @default(autoincrement())
-  patientName String
-  patientId   String?
-  memo        String?
-  subtotal    Int         @default(0)
-  tax         Int         @default(0)
-  total       Int         @default(0)
-  items       QuoteItem[]
-  createdAt   DateTime    @default(now())
+  id           Int         @id @default(autoincrement())
+  patientFkId  Int?
+  patient      Patient?    @relation(fields: [patientFkId], references: [id])
+  patientName  String
+  patientId    String?
+  memo         String?
+  subtotal     Int         @default(0)
+  tax          Int         @default(0)
+  total        Int         @default(0)
+  items        QuoteItem[]
+  createdAt    DateTime    @default(now())
 }
 
 model QuoteItem {

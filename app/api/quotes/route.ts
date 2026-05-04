@@ -5,16 +5,29 @@ const TAX_RATE = 0.1;
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { patientName, patientId, memo, items } = body;
+  const { patientName, patientId, patientFkId, memo, items } = body;
 
   const subtotal: number = items.reduce((sum: number, item: { unitPrice: number; quantity: number }) => sum + item.unitPrice * item.quantity, 0);
   const tax = Math.floor(subtotal * TAX_RATE);
   const total = subtotal + tax;
 
+  // patientFkId が渡された場合はそのまま使う
+  // patientId（文字列）が渡された場合は患者を検索 or 作成してリンク
+  let resolvedPatientFkId: number | null = patientFkId ?? null;
+  if (!resolvedPatientFkId && patientId) {
+    const patient = await prisma.patient.upsert({
+      where: { code: patientId },
+      update: {},
+      create: { code: patientId, name: patientName || patientId },
+    });
+    resolvedPatientFkId = patient.id;
+  }
+
   const quote = await prisma.quote.create({
     data: {
       patientName,
       patientId: patientId || null,
+      patientFkId: resolvedPatientFkId,
       memo: memo || null,
       subtotal,
       tax,
@@ -34,9 +47,7 @@ export async function POST(req: NextRequest) {
       },
     },
     include: {
-      items: {
-        include: { treatment: { include: { category: true } } },
-      },
+      items: { include: { treatment: { include: { category: true } } } },
     },
   });
 
