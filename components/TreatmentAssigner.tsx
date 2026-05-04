@@ -121,7 +121,7 @@ export default function TreatmentAssigner({ toothId, toothLabel, categories, onA
             setSelectedTreatmentId("");
             setSelectedOptionIds(new Set());
           }}
-          className={`text-xs border border-gray-300 rounded px-2 py-1 ${noTooth ? "flex-1 min-w-32" : "w-full"}`}
+          className={`text-sm border border-gray-300 rounded px-3 py-2 ${noTooth ? "flex-1 min-w-32" : "w-full"}`}
         >
           <option value="">カテゴリを選択</option>
           {categories.map((c) => (
@@ -136,7 +136,7 @@ export default function TreatmentAssigner({ toothId, toothLabel, categories, onA
               setSelectedTreatmentId(Number(e.target.value) || "");
               setSelectedOptionIds(new Set());
             }}
-            className={`text-xs border border-gray-300 rounded px-2 py-1 ${noTooth ? "flex-1 min-w-40" : "w-full"}`}
+            className={`text-sm border border-gray-300 rounded px-3 py-2 ${noTooth ? "flex-1 min-w-40" : "w-full"}`}
           >
             <option value="">治療を選択</option>
             {selectedCategory.treatments.map((t) => (
@@ -168,19 +168,19 @@ export default function TreatmentAssigner({ toothId, toothLabel, categories, onA
         )}
 
         <div className="flex gap-2 items-center">
-          <label className="text-xs text-gray-500">数量</label>
+          <label className="text-sm text-gray-500">数量</label>
           <input
             type="number"
             min={1}
             value={quantity}
             onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
-            className="text-xs border border-gray-300 rounded px-2 py-1 w-16 text-center"
+            className="text-sm border border-gray-300 rounded px-3 py-2 w-20 text-center"
           />
           <button
             type="button"
             onClick={handleAdd}
             disabled={!selectedTreatmentId}
-            className="text-xs bg-blue-500 text-white rounded px-3 py-1 hover:bg-blue-600 disabled:opacity-40"
+            className="text-sm bg-blue-500 text-white rounded px-4 py-2 hover:bg-blue-600 disabled:opacity-40"
           >
             追加
           </button>

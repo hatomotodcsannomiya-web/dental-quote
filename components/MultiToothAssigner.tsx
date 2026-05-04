@@ -356,11 +356,11 @@ export default function MultiToothAssigner({ categories, onAdd }: Props) {
           {/* 治療選択・数量・追加 */}
           <div className="flex flex-wrap gap-2 items-end">
             <div className="flex-1 min-w-28">
-              <label className="block text-xs text-gray-500 mb-1">カテゴリ</label>
+              <label className="block text-sm text-gray-500 mb-1">カテゴリ</label>
               <select
                 value={selectedCategoryId}
                 onChange={(e) => { setSelectedCategoryId(Number(e.target.value) || ""); setSelectedTreatmentId(""); setSelectedOptionIds(new Set()); }}
-                className="text-xs border border-gray-300 rounded px-2 py-1.5 w-full focus:outline-none"
+                className="text-sm border border-gray-300 rounded px-3 py-2 w-full focus:outline-none"
               >
                 <option value="">選択...</option>
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -368,11 +368,11 @@ export default function MultiToothAssigner({ categories, onAdd }: Props) {
             </div>
             {selectedCategory && (
               <div className="flex-1 min-w-40">
-                <label className="block text-xs text-gray-500 mb-1">治療内容</label>
+                <label className="block text-sm text-gray-500 mb-1">治療内容</label>
                 <select
                   value={selectedTreatmentId}
                   onChange={(e) => { setSelectedTreatmentId(Number(e.target.value) || ""); setSelectedOptionIds(new Set()); }}
-                  className="text-xs border border-gray-300 rounded px-2 py-1.5 w-full focus:outline-none"
+                  className="text-sm border border-gray-300 rounded px-3 py-2 w-full focus:outline-none"
                 >
                   <option value="">選択...</option>
                   {selectedCategory.treatments.map((t) => (
@@ -382,7 +382,7 @@ export default function MultiToothAssigner({ categories, onAdd }: Props) {
               </div>
             )}
             <div>
-              <label className="block text-xs text-gray-500 mb-1">
+              <label className="block text-sm text-gray-500 mb-1">
                 数量
                 {!bridgeMode && checkedTeeth.size > 0 && (
                   <span className="text-purple-500 ml-1">（自動: {checkedTeeth.size}）</span>
@@ -397,7 +397,7 @@ export default function MultiToothAssigner({ categories, onAdd }: Props) {
                 placeholder={bridgeMode ? "1" : String(checkedTeeth.size || 1)}
                 value={quantityOverride}
                 onChange={(e) => setQuantityOverride(e.target.value === "" ? "" : Math.max(1, Number(e.target.value)))}
-                className="text-xs border border-gray-300 rounded px-2 py-1.5 w-20 text-center focus:outline-none"
+                className="text-sm border border-gray-300 rounded px-3 py-2 w-24 text-center focus:outline-none"
               />
             </div>
             <button
@@ -407,7 +407,7 @@ export default function MultiToothAssigner({ categories, onAdd }: Props) {
                 (!bridgeMode && (checkedTeeth.size === 0 || !selectedTreatmentId)) ||
                 (bridgeMode && (toothRoles.size === 0 || !selectedTreatmentId))
               }
-              className="text-xs bg-purple-600 text-white rounded-lg px-4 py-1.5 hover:bg-purple-700 disabled:opacity-40"
+              className="text-sm bg-purple-600 text-white rounded-lg px-5 py-2 hover:bg-purple-700 disabled:opacity-40"
             >
               追加
             </button>
