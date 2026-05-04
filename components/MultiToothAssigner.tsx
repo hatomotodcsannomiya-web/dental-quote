@@ -172,7 +172,7 @@ export default function MultiToothAssigner({ categories, onAdd }: Props) {
                   key={t.id}
                   type="button"
                   onClick={() => onClickTooth(t.id)}
-                  className={`w-7 h-7 text-xs border-2 rounded transition-all relative ${getStyle(t.id)}`}
+                  className={`w-10 h-10 text-sm border-2 rounded transition-all relative ${getStyle(t.id)}`}
                 >
                   {t.number}
                   {extraLabel?.(t.id)}
@@ -187,7 +187,7 @@ export default function MultiToothAssigner({ categories, onAdd }: Props) {
                   key={t.id}
                   type="button"
                   onClick={() => onClickTooth(t.id)}
-                  className={`w-7 h-7 text-xs border-2 rounded-full transition-all relative ${getStyle(t.id)}`}
+                  className={`w-10 h-10 text-sm border-2 rounded-full transition-all relative ${getStyle(t.id)}`}
                 >
                   {t.number}
                   {extraLabel?.(t.id)}

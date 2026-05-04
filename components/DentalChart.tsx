@@ -7,7 +7,7 @@ interface Props {
   onToggle: (toothId: string) => void;
 }
 
-const TOOTH_W = "w-8 h-8";
+const TOOTH_W = "w-11 h-11";
 
 function ToothButton({ tooth, selected, onClick }: { tooth: Tooth; selected: boolean; onClick: () => void }) {
   const isDeciduous = tooth.type === "deciduous";
@@ -17,7 +17,7 @@ function ToothButton({ tooth, selected, onClick }: { tooth: Tooth; selected: boo
       onClick={onClick}
       title={tooth.label}
       className={`
-        ${TOOTH_W} text-xs font-medium border-2 rounded transition-all shrink-0
+        ${TOOTH_W} text-sm font-medium border-2 rounded transition-all shrink-0
         ${isDeciduous ? "rounded-full" : ""}
         ${selected
           ? "bg-blue-500 border-blue-600 text-white shadow-md"
