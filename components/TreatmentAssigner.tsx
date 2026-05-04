@@ -10,11 +10,12 @@ interface Props {
   existing: QuoteLineItem[];
   onAdd: (item: QuoteLineItem) => void;
   onRemove: (index: number) => void;
+  onUpdate: (index: number, updated: Partial<QuoteLineItem>) => void;
   globalItems: QuoteLineItem[];
   noTooth?: boolean;
 }
 
-export default function TreatmentAssigner({ toothId, toothLabel, categories, onAdd, onRemove, globalItems, noTooth }: Props) {
+export default function TreatmentAssigner({ toothId, toothLabel, categories, onAdd, onRemove, onUpdate, globalItems, noTooth }: Props) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | "">("");
   const [selectedTreatmentId, setSelectedTreatmentId] = useState<number | "">("");
   const [quantity, setQuantity] = useState(1);
@@ -53,13 +54,23 @@ export default function TreatmentAssigner({ toothId, toothLabel, categories, onA
       {toothItems.length > 0 && (
         <div className={`mb-3 ${noTooth ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1" : "space-y-1"}`}>
           {toothItems.map(({ item, index }) => (
-            <div key={index} className="flex items-center justify-between text-xs bg-blue-50 rounded px-2 py-1">
-              <span className="text-gray-700">{item.treatmentName} × {item.quantity}</span>
-              <span className="text-gray-500 mr-2">¥{(item.unitPrice * item.quantity).toLocaleString()}</span>
+            <div key={index} className="flex items-center gap-2 text-xs bg-blue-50 rounded px-2 py-1">
+              <span className="flex-1 text-gray-700 truncate">{item.treatmentName}</span>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <span className="text-gray-400">×</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={item.quantity}
+                  onChange={(e) => onUpdate(index, { quantity: Math.max(1, Number(e.target.value)) })}
+                  className="w-10 text-center border border-blue-200 rounded px-1 py-0.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                />
+              </div>
+              <span className="text-gray-500 flex-shrink-0">¥{(item.unitPrice * item.quantity).toLocaleString()}</span>
               <button
                 type="button"
                 onClick={() => onRemove(index)}
-                className="text-red-400 hover:text-red-600 font-bold leading-none"
+                className="text-red-400 hover:text-red-600 font-bold leading-none flex-shrink-0"
               >
                 ×
               </button>

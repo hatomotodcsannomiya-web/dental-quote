@@ -53,6 +53,10 @@ export default function Home() {
     setItems((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
+  const updateItem = useCallback((index: number, updated: Partial<QuoteLineItem>) => {
+    setItems((prev) => prev.map((item, i) => i === index ? { ...item, ...updated } : item));
+  }, []);
+
   async function saveQuote() {
     if (items.length === 0) return;
     setSaving(true);
@@ -238,6 +242,7 @@ export default function Home() {
                     existing={items.filter((i) => i.toothId === toothId)}
                     onAdd={addItem}
                     onRemove={removeItem}
+                    onUpdate={updateItem}
                     globalItems={items}
                   />
                 );
@@ -251,6 +256,7 @@ export default function Home() {
                 existing={items.filter((i) => i.toothId === NO_TOOTH_ID)}
                 onAdd={addItem}
                 onRemove={removeItem}
+                onUpdate={updateItem}
                 globalItems={items}
                 noTooth
               />
@@ -260,6 +266,43 @@ export default function Home() {
                 onAdd={addItem}
               />
             </div>
+
+            {/* 複数歯・ブリッジ登録済みアイテム編集 */}
+            {items.some((i) => i.toothId === "__multi__") && (
+              <div className="bg-white rounded-xl shadow-sm p-4 border-2 border-purple-100">
+                <h3 className="text-sm font-semibold text-purple-700 mb-3">🦷 複数歯・ブリッジ（登録済み）</h3>
+                <div className="space-y-2">
+                  {items.map((item, index) => {
+                    if (item.toothId !== "__multi__") return null;
+                    return (
+                      <div key={index} className="flex flex-wrap items-center gap-2 bg-purple-50 rounded-lg px-3 py-2 text-xs">
+                        <span className="font-medium text-purple-800 flex-1 min-w-0">{item.toothLabel}</span>
+                        <span className="text-gray-700">{item.treatmentName}</span>
+                        <span className="text-gray-500">¥{item.unitPrice.toLocaleString()}</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-500">×</span>
+                          <input
+                            type="number"
+                            min={1}
+                            value={item.quantity}
+                            onChange={(e) => updateItem(index, { quantity: Math.max(1, Number(e.target.value)) })}
+                            className="w-12 text-center border border-gray-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                          />
+                        </div>
+                        <span className="font-semibold text-gray-800">¥{(item.unitPrice * item.quantity).toLocaleString()}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeItem(index)}
+                          className="text-red-400 hover:text-red-600 font-bold text-sm leading-none"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end">
               <button
@@ -300,17 +343,28 @@ export default function Home() {
                     <th className="text-right py-2 px-3">数量</th>
                     <th className="text-right py-2 px-3">単価</th>
                     <th className="text-right py-2 px-3">小計</th>
+                    <th className="py-2 px-2" />
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((item, i) => (
                     <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-2 px-3">{item.toothLabel}</td>
+                      <td className="py-2 px-3 text-xs">{item.toothLabel}</td>
                       <td className="py-2 px-3">{item.treatmentName}</td>
                       <td className="py-2 px-3 text-gray-500 text-xs">{item.categoryName}</td>
                       <td className="py-2 px-3 text-right">{item.quantity}</td>
                       <td className="py-2 px-3 text-right">¥{item.unitPrice.toLocaleString()}</td>
                       <td className="py-2 px-3 text-right font-medium">¥{(item.unitPrice * item.quantity).toLocaleString()}</td>
+                      <td className="py-2 px-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => removeItem(i)}
+                          className="text-red-300 hover:text-red-500 text-base font-bold leading-none"
+                          title="削除"
+                        >
+                          ×
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
