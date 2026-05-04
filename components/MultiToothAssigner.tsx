@@ -31,8 +31,20 @@ export default function MultiToothAssigner({ categories, onAdd }: Props) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | "">("");
   const [selectedTreatmentId, setSelectedTreatmentId] = useState<number | "">("");
   const [quantityOverride, setQuantityOverride] = useState<number | "">("");
+  const [selectedOptionIds, setSelectedOptionIds] = useState<Set<number>>(new Set());
 
   const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
+  const selectedTreatment = selectedCategory?.treatments.find((t) => t.id === selectedTreatmentId);
+  const activeOptions = selectedTreatment?.options?.filter((o) => o.isActive) ?? [];
+
+  function toggleOption(optId: number) {
+    setSelectedOptionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(optId)) next.delete(optId);
+      else next.add(optId);
+      return next;
+    });
+  }
 
   // --- 通常モード ---
   function toggleNormal(id: string) {
@@ -78,12 +90,17 @@ export default function MultiToothAssigner({ categories, onAdd }: Props) {
     const treatment = category?.treatments.find((t) => t.id === selectedTreatmentId);
     if (!treatment || !category) return;
 
+    let toothLabel: string;
+    let toothIds: string[];
+
     if (bridgeMode) {
       if (toothRoles.size === 0) return;
+      toothLabel = buildBridgeLabel();
+      toothIds = Array.from(toothRoles.keys());
       onAdd({
         toothId: "__multi__",
-        toothLabel: buildBridgeLabel(),
-        toothIds: Array.from(toothRoles.keys()),
+        toothLabel,
+        toothIds,
         treatmentId: treatment.id,
         treatmentName: treatment.name,
         categoryName: category.name,
@@ -94,11 +111,13 @@ export default function MultiToothAssigner({ categories, onAdd }: Props) {
     } else {
       if (checkedTeeth.size === 0) return;
       const ids = Array.from(checkedTeeth);
+      toothLabel = buildNormalLabel(ids);
+      toothIds = ids;
       const qty = quantityOverride !== "" ? Number(quantityOverride) : ids.length;
       onAdd({
         toothId: "__multi__",
-        toothLabel: buildNormalLabel(ids),
-        toothIds: ids,
+        toothLabel,
+        toothIds,
         treatmentId: treatment.id,
         treatmentName: treatment.name,
         categoryName: category.name,
@@ -108,7 +127,24 @@ export default function MultiToothAssigner({ categories, onAdd }: Props) {
       setCheckedTeeth(new Set());
     }
 
+    for (const opt of activeOptions) {
+      if (selectedOptionIds.has(opt.id)) {
+        onAdd({
+          toothId: "__multi__",
+          toothLabel,
+          toothIds,
+          treatmentId: treatment.id,
+          treatmentName: "└ " + opt.name,
+          categoryName: category.name,
+          quantity: 1,
+          unitPrice: opt.price,
+          isOption: true,
+        });
+      }
+    }
+
     setSelectedTreatmentId("");
+    setSelectedOptionIds(new Set());
     setQuantityOverride("");
     setOpen(false);
   }
@@ -296,13 +332,34 @@ export default function MultiToothAssigner({ categories, onAdd }: Props) {
             </div>
           )}
 
+          {/* オプション */}
+          {activeOptions.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
+              <p className="text-xs font-semibold text-amber-700 mb-1.5">オプション（追加）</p>
+              <div className="space-y-1">
+                {activeOptions.map((opt) => (
+                  <label key={opt.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedOptionIds.has(opt.id)}
+                      onChange={() => toggleOption(opt.id)}
+                      className="rounded accent-amber-500"
+                    />
+                    <span className="text-gray-700 flex-1">{opt.name}</span>
+                    <span className="text-amber-700 font-medium">+¥{opt.price.toLocaleString()}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 治療選択・数量・追加 */}
           <div className="flex flex-wrap gap-2 items-end">
             <div className="flex-1 min-w-28">
               <label className="block text-xs text-gray-500 mb-1">カテゴリ</label>
               <select
                 value={selectedCategoryId}
-                onChange={(e) => { setSelectedCategoryId(Number(e.target.value) || ""); setSelectedTreatmentId(""); }}
+                onChange={(e) => { setSelectedCategoryId(Number(e.target.value) || ""); setSelectedTreatmentId(""); setSelectedOptionIds(new Set()); }}
                 className="text-xs border border-gray-300 rounded px-2 py-1.5 w-full focus:outline-none"
               >
                 <option value="">選択...</option>
@@ -314,7 +371,7 @@ export default function MultiToothAssigner({ categories, onAdd }: Props) {
                 <label className="block text-xs text-gray-500 mb-1">治療内容</label>
                 <select
                   value={selectedTreatmentId}
-                  onChange={(e) => setSelectedTreatmentId(Number(e.target.value) || "")}
+                  onChange={(e) => { setSelectedTreatmentId(Number(e.target.value) || ""); setSelectedOptionIds(new Set()); }}
                   className="text-xs border border-gray-300 rounded px-2 py-1.5 w-full focus:outline-none"
                 >
                   <option value="">選択...</option>

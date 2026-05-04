@@ -305,10 +305,10 @@ function QuoteNewInner() {
                 </thead>
                 <tbody>
                   {items.map((item, i) => (
-                    <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-2 px-3 text-xs">{item.toothLabel}</td>
-                      <td className="py-2 px-3">{item.treatmentName}</td>
-                      <td className="py-2 px-3 text-gray-500 text-xs">{item.categoryName}</td>
+                    <tr key={i} className={`border-b border-gray-100 ${item.isOption ? "bg-amber-50" : "hover:bg-gray-50"}`}>
+                      <td className="py-2 px-3 text-xs">{item.isOption ? "" : item.toothLabel}</td>
+                      <td className={`py-2 px-3 ${item.isOption ? "text-amber-700 text-xs pl-5" : ""}`}>{item.treatmentName}</td>
+                      <td className="py-2 px-3 text-gray-500 text-xs">{item.isOption ? "" : item.categoryName}</td>
                       <td className="py-2 px-3 text-right">{item.quantity}</td>
                       <td className="py-2 px-3 text-right">¥{item.unitPrice.toLocaleString()}</td>
                       <td className="py-2 px-3 text-right font-medium">¥{(item.unitPrice * item.quantity).toLocaleString()}</td>

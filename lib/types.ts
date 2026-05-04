@@ -1,3 +1,12 @@
+export interface TreatmentOption {
+  id: number;
+  treatmentId: number;
+  name: string;
+  price: number;
+  sortOrder: number;
+  isActive: boolean;
+}
+
 export interface TreatmentItem {
   id: number;
   name: string;
@@ -7,6 +16,7 @@ export interface TreatmentItem {
   unit: string;
   isActive: boolean;
   sortOrder: number;
+  options: TreatmentOption[];
 }
 
 export interface CategoryWithTreatments {
@@ -25,4 +35,5 @@ export interface QuoteLineItem {
   categoryName: string;
   quantity: number;
   unitPrice: number;
+  isOption?: boolean;     // オプション行（主項目に紐づく追加選択肢）
 }

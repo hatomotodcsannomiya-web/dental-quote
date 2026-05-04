@@ -19,12 +19,15 @@ export default function TreatmentAssigner({ toothId, toothLabel, categories, onA
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | "">("");
   const [selectedTreatmentId, setSelectedTreatmentId] = useState<number | "">("");
   const [quantity, setQuantity] = useState(1);
+  const [selectedOptionIds, setSelectedOptionIds] = useState<Set<number>>(new Set());
 
   const toothItems = globalItems
     .map((item, index) => ({ item, index }))
     .filter(({ item }) => item.toothId === toothId);
 
   const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
+  const selectedTreatment = selectedCategory?.treatments.find((t) => t.id === selectedTreatmentId);
+  const activeOptions = selectedTreatment?.options?.filter((o) => o.isActive) ?? [];
 
   function handleAdd() {
     if (!selectedTreatmentId || !selectedCategoryId) return;
@@ -41,8 +44,34 @@ export default function TreatmentAssigner({ toothId, toothLabel, categories, onA
       quantity,
       unitPrice: treatment.unitPrice,
     });
+
+    for (const opt of activeOptions) {
+      if (selectedOptionIds.has(opt.id)) {
+        onAdd({
+          toothId,
+          toothLabel,
+          treatmentId: treatment.id,
+          treatmentName: "└ " + opt.name,
+          categoryName: category.name,
+          quantity: 1,
+          unitPrice: opt.price,
+          isOption: true,
+        });
+      }
+    }
+
     setSelectedTreatmentId("");
+    setSelectedOptionIds(new Set());
     setQuantity(1);
+  }
+
+  function toggleOption(optId: number) {
+    setSelectedOptionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(optId)) next.delete(optId);
+      else next.add(optId);
+      return next;
+    });
   }
 
   return (
@@ -54,18 +83,23 @@ export default function TreatmentAssigner({ toothId, toothLabel, categories, onA
       {toothItems.length > 0 && (
         <div className={`mb-3 ${noTooth ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1" : "space-y-1"}`}>
           {toothItems.map(({ item, index }) => (
-            <div key={index} className="flex items-center gap-2 text-xs bg-blue-50 rounded px-2 py-1">
-              <span className="flex-1 text-gray-700 truncate">{item.treatmentName}</span>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <span className="text-gray-400">×</span>
-                <input
-                  type="number"
-                  min={1}
-                  value={item.quantity}
-                  onChange={(e) => onUpdate(index, { quantity: Math.max(1, Number(e.target.value)) })}
-                  className="w-10 text-center border border-blue-200 rounded px-1 py-0.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-                />
-              </div>
+            <div
+              key={index}
+              className={`flex items-center gap-2 text-xs rounded px-2 py-1 ${item.isOption ? "bg-amber-50 ml-3" : "bg-blue-50"}`}
+            >
+              <span className={`flex-1 truncate ${item.isOption ? "text-amber-700" : "text-gray-700"}`}>{item.treatmentName}</span>
+              {!item.isOption && (
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <span className="text-gray-400">×</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={item.quantity}
+                    onChange={(e) => onUpdate(index, { quantity: Math.max(1, Number(e.target.value)) })}
+                    className="w-10 text-center border border-blue-200 rounded px-1 py-0.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  />
+                </div>
+              )}
               <span className="text-gray-500 flex-shrink-0">¥{(item.unitPrice * item.quantity).toLocaleString()}</span>
               <button
                 type="button"
@@ -85,6 +119,7 @@ export default function TreatmentAssigner({ toothId, toothLabel, categories, onA
           onChange={(e) => {
             setSelectedCategoryId(Number(e.target.value) || "");
             setSelectedTreatmentId("");
+            setSelectedOptionIds(new Set());
           }}
           className={`text-xs border border-gray-300 rounded px-2 py-1 ${noTooth ? "flex-1 min-w-32" : "w-full"}`}
         >
@@ -97,7 +132,10 @@ export default function TreatmentAssigner({ toothId, toothLabel, categories, onA
         {selectedCategory && (
           <select
             value={selectedTreatmentId}
-            onChange={(e) => setSelectedTreatmentId(Number(e.target.value) || "")}
+            onChange={(e) => {
+              setSelectedTreatmentId(Number(e.target.value) || "");
+              setSelectedOptionIds(new Set());
+            }}
             className={`text-xs border border-gray-300 rounded px-2 py-1 ${noTooth ? "flex-1 min-w-40" : "w-full"}`}
           >
             <option value="">治療を選択</option>
@@ -107,6 +145,26 @@ export default function TreatmentAssigner({ toothId, toothLabel, categories, onA
               </option>
             ))}
           </select>
+        )}
+
+        {activeOptions.length > 0 && (
+          <div className={`bg-amber-50 border border-amber-200 rounded-lg p-2 ${noTooth ? "w-full" : ""}`}>
+            <p className="text-xs font-semibold text-amber-700 mb-1.5">オプション（追加）</p>
+            <div className="space-y-1">
+              {activeOptions.map((opt) => (
+                <label key={opt.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedOptionIds.has(opt.id)}
+                    onChange={() => toggleOption(opt.id)}
+                    className="rounded accent-amber-500"
+                  />
+                  <span className="text-gray-700 flex-1">{opt.name}</span>
+                  <span className="text-amber-700 font-medium">+¥{opt.price.toLocaleString()}</span>
+                </label>
+              ))}
+            </div>
+          </div>
         )}
 
         <div className="flex gap-2 items-center">

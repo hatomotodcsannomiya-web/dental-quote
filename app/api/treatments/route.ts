@@ -8,6 +8,12 @@ export async function GET() {
       treatments: {
         where: { isActive: true },
         orderBy: { sortOrder: "asc" },
+        include: {
+          options: {
+            where: { isActive: true },
+            orderBy: { sortOrder: "asc" },
+          },
+        },
       },
     },
   });

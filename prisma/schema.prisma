@@ -16,18 +16,30 @@ model Category {
 }
 
 model Treatment {
-  id         Int         @id @default(autoincrement())
+  id         Int               @id @default(autoincrement())
   name       String
   categoryId Int
-  category   Category    @relation(fields: [categoryId], references: [id])
-  priceType  String      @default("per_tooth")
+  category   Category          @relation(fields: [categoryId], references: [id])
+  priceType  String            @default("per_tooth")
   unitPrice  Int
-  unit       String      @default("本")
-  isActive   Boolean     @default(true)
-  sortOrder  Int         @default(0)
+  unit       String            @default("本")
+  isActive   Boolean           @default(true)
+  sortOrder  Int               @default(0)
   quoteItems QuoteItem[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  options    TreatmentOption[]
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+}
+
+model TreatmentOption {
+  id          Int       @id @default(autoincrement())
+  treatmentId Int
+  treatment   Treatment @relation(fields: [treatmentId], references: [id])
+  name        String
+  price       Int
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
 }
 
 model Patient {
