@@ -188,7 +188,7 @@ export default function WarrantyPDFDoc({ patientName, patientCode, issuedDate, t
         <View style={{ marginTop: 6 }}>
           <View style={s.patiRow}>
             <Text style={s.patiLabel}>患者様氏名</Text>
-            <Text style={s.patiValue}>{patientName}　（{patientCode}）</Text>
+            <Text style={s.patiValue}>{patientName}</Text>
           </View>
         </View>
 

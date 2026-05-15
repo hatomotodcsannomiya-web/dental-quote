@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import DentalChart from "@/components/DentalChart";
 import TreatmentAssigner from "@/components/TreatmentAssigner";
 import MultiToothAssigner from "@/components/MultiToothAssigner";
+import PDFPreviewModal from "@/components/PDFPreviewModal";
 import type { CategoryWithTreatments, QuoteLineItem } from "@/lib/types";
 import { getToothById } from "@/lib/teeth";
 
@@ -36,6 +37,7 @@ function QuoteNewInner() {
   const [savedQuoteId, setSavedQuoteId] = useState<number | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [warrantyLoading, setWarrantyLoading] = useState(false);
+  const [previewPdf, setPreviewPdf] = useState<{ url: string; filename: string } | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -98,7 +100,14 @@ function QuoteNewInner() {
     }
   }
 
-  async function downloadWarranty() {
+  function closePreview() {
+    if (previewPdf) {
+      URL.revokeObjectURL(previewPdf.url);
+      setPreviewPdf(null);
+    }
+  }
+
+  async function openPreviewWarranty() {
     setWarrantyLoading(true);
     try {
       const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
@@ -115,17 +124,13 @@ function QuoteNewInner() {
       });
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `補綴保証書_${patient?.code ?? "患者"}_${today.replace(/[年月日]/g, "-")}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      setPreviewPdf({ url, filename: `補綴保証書_${patient?.code ?? "患者"}_${today.replace(/[年月日]/g, "-")}.pdf` });
     } finally {
       setWarrantyLoading(false);
     }
   }
 
-  async function downloadPDF() {
+  async function openPreviewPDF() {
     setPdfLoading(true);
     try {
       const createdAtStr = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
@@ -136,11 +141,7 @@ function QuoteNewInner() {
       });
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `見積書_${patient?.code ?? patient?.name ?? "患者"}_${createdAtStr.replace(/[年月日]/g, "-")}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      setPreviewPdf({ url, filename: `見積書_${patient?.code ?? patient?.name ?? "患者"}_${createdAtStr.replace(/[年月日]/g, "-")}.pdf` });
     } finally {
       setPdfLoading(false);
     }
@@ -381,24 +382,29 @@ function QuoteNewInner() {
               </button>
               <button
                 type="button"
-                onClick={downloadWarranty}
+                onClick={openPreviewWarranty}
                 disabled={warrantyLoading}
                 className="bg-emerald-600 text-white px-6 py-3 rounded-xl font-semibold text-sm hover:bg-emerald-700 disabled:opacity-60 shadow"
               >
-                {warrantyLoading ? "生成中..." : "保証書を発行"}
+                {warrantyLoading ? "生成中..." : "保証書をプレビュー"}
               </button>
               <button
                 type="button"
-                onClick={downloadPDF}
+                onClick={openPreviewPDF}
                 disabled={pdfLoading}
                 className="bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold text-sm hover:bg-blue-700 disabled:opacity-60 shadow"
               >
-                {pdfLoading ? "PDF生成中..." : "見積PDFをダウンロード"}
+                {pdfLoading ? "生成中..." : "見積PDFをプレビュー"}
               </button>
             </div>
           </>
         )}
       </main>
+
+      {/* PDFプレビュー */}
+      {previewPdf && (
+        <PDFPreviewModal url={previewPdf.url} filename={previewPdf.filename} onClose={closePreview} />
+      )}
     </div>
   );
 }

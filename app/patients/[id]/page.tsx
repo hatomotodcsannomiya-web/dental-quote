@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
+import PDFPreviewModal from "@/components/PDFPreviewModal";
 
 interface QuoteItem {
   id: number;
@@ -37,13 +38,22 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [expandedQuoteId, setExpandedQuoteId] = useState<number | null>(null);
-  const [pdfLoadingId, setPdfLoadingId] = useState<number | null>(null);
-  const [warrantyLoadingId, setWarrantyLoadingId] = useState<number | null>(null);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", memo: "" });
   const [saving, setSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // 見積削除
+  const [quoteDeleteConfirmId, setQuoteDeleteConfirmId] = useState<number | null>(null);
+  const [deletingQuoteId, setDeletingQuoteId] = useState<number | null>(null);
+
+  // PDF生成ローディング
+  const [pdfLoadingId, setPdfLoadingId] = useState<number | null>(null);
+  const [warrantyLoadingId, setWarrantyLoadingId] = useState<number | null>(null);
+
+  // プレビュー
+  const [previewPdf, setPreviewPdf] = useState<{ url: string; filename: string } | null>(null);
 
   async function load() {
     const res = await fetch(`/api/patients/${id}`);
@@ -69,7 +79,45 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     load();
   }
 
-  async function downloadWarranty(quote: Quote) {
+  async function handleDeletePatient() {
+    setDeleting(true);
+    await fetch(`/api/patients/${id}`, { method: "DELETE" });
+    router.push("/patients");
+  }
+
+  async function handleDeleteQuote(quoteId: number) {
+    setDeletingQuoteId(quoteId);
+    await fetch(`/api/quotes/${quoteId}`, { method: "DELETE" });
+    setDeletingQuoteId(null);
+    setQuoteDeleteConfirmId(null);
+    if (expandedQuoteId === quoteId) setExpandedQuoteId(null);
+    load();
+  }
+
+  async function openPreviewPDF(quote: Quote) {
+    setPdfLoadingId(quote.id);
+    try {
+      const createdAt = new Date(quote.createdAt).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
+      const items = quote.items.map((item) => ({
+        toothId: "", toothLabel: item.toothLabel,
+        treatmentId: 0, treatmentName: item.treatment.name,
+        categoryName: item.treatment.category.name,
+        quantity: item.quantity, unitPrice: item.unitPrice,
+      }));
+      const res = await fetch("/api/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items, createdAt }),
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      setPreviewPdf({ url, filename: `見積書_${patient?.code}_${quote.id}.pdf` });
+    } finally {
+      setPdfLoadingId(null);
+    }
+  }
+
+  async function openPreviewWarranty(quote: Quote) {
     setWarrantyLoadingId(quote.id);
     try {
       const issuedDate = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
@@ -91,46 +139,16 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
       });
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `補綴保証書_${patient?.code}_${quote.id}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      setPreviewPdf({ url, filename: `補綴保証書_${patient?.code}_${quote.id}.pdf` });
     } finally {
       setWarrantyLoadingId(null);
     }
   }
 
-  async function handleDelete() {
-    setDeleting(true);
-    await fetch(`/api/patients/${id}`, { method: "DELETE" });
-    router.push("/patients");
-  }
-
-  async function downloadPDF(quote: Quote) {
-    setPdfLoadingId(quote.id);
-    try {
-      const createdAt = new Date(quote.createdAt).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
-      const items = quote.items.map((item) => ({
-        toothId: "", toothLabel: item.toothLabel,
-        treatmentId: 0, treatmentName: item.treatment.name,
-        categoryName: item.treatment.category.name,
-        quantity: item.quantity, unitPrice: item.unitPrice,
-      }));
-      const res = await fetch("/api/pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, createdAt }),
-      });
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `見積書_${patient?.code}_${quote.id}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setPdfLoadingId(null);
+  function closePreview() {
+    if (previewPdf) {
+      URL.revokeObjectURL(previewPdf.url);
+      setPreviewPdf(null);
     }
   }
 
@@ -153,13 +171,13 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
 
   if (!patient) return null;
 
+  const quoteToDelete = quoteDeleteConfirmId ? patient.quotes.find((q) => q.id === quoteDeleteConfirmId) : null;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <a href="/patients" className="text-sm text-gray-400 hover:text-gray-600">← 患者一覧</a>
-          </div>
+          <a href="/patients" className="text-sm text-gray-400 hover:text-gray-600">← 患者一覧</a>
           <a href="/admin" className="text-xs text-gray-400 hover:text-gray-600">管理</a>
         </div>
       </header>
@@ -179,20 +197,8 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                 <p className="text-xs text-gray-300 mt-2">登録：{formatDate(patient.createdAt)}</p>
               </div>
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setEditing(true)}
-                  className="text-xs text-blue-500 hover:text-blue-700 border border-blue-200 px-3 py-1 rounded-lg"
-                >
-                  編集
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="text-xs text-red-400 hover:text-red-600 border border-red-200 px-3 py-1 rounded-lg"
-                >
-                  削除
-                </button>
+                <button type="button" onClick={() => setEditing(true)} className="text-xs text-blue-500 hover:text-blue-700 border border-blue-200 px-3 py-1 rounded-lg">編集</button>
+                <button type="button" onClick={() => setShowDeleteConfirm(true)} className="text-xs text-red-400 hover:text-red-600 border border-red-200 px-3 py-1 rounded-lg">削除</button>
               </div>
             </div>
           ) : (
@@ -203,27 +209,15 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">氏名</label>
-                <input
-                  type="text"
-                  value={editForm.name}
-                  onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
+                <input type="text" value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">メモ</label>
-                <input
-                  type="text"
-                  value={editForm.memo}
-                  onChange={(e) => setEditForm((f) => ({ ...f, memo: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
+                <input type="text" value={editForm.memo} onChange={(e) => setEditForm((f) => ({ ...f, memo: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
               </div>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setEditing(false)} className="border border-gray-300 text-gray-600 px-4 py-1.5 rounded-lg text-sm hover:bg-gray-50">キャンセル</button>
-                <button type="button" onClick={handleEditSave} disabled={saving} className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
-                  {saving ? "保存中..." : "保存"}
-                </button>
+                <button type="button" onClick={handleEditSave} disabled={saving} className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">{saving ? "保存中..." : "保存"}</button>
               </div>
             </div>
           )}
@@ -251,28 +245,45 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
           </h2>
 
           {patient.quotes.length === 0 ? (
-            <div className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-400 text-sm">
-              まだ見積もりがありません
-            </div>
+            <div className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-400 text-sm">まだ見積もりがありません</div>
           ) : (
             <div className="space-y-3">
               {patient.quotes.map((quote) => (
                 <div key={quote.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
-                  <div
-                    className="flex items-center gap-3 px-5 py-4 cursor-pointer hover:bg-gray-50"
-                    onClick={() => setExpandedQuoteId(expandedQuoteId === quote.id ? null : quote.id)}
-                  >
-                    <div className="flex-1 min-w-0">
+                  {/* ヘッダー行 */}
+                  <div className="flex items-center gap-3 px-5 py-4">
+                    <div
+                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() => setExpandedQuoteId(expandedQuoteId === quote.id ? null : quote.id)}
+                    >
                       <p className="text-xs text-gray-400">{formatDate(quote.createdAt)}</p>
                       {quote.memo && <p className="text-xs text-gray-500 mt-0.5">{quote.memo}</p>}
                       <p className="text-xs text-gray-400 mt-0.5">{quote.items.length}項目</p>
                     </div>
-                    <div className="text-right shrink-0">
+                    <div
+                      className="text-right shrink-0 cursor-pointer"
+                      onClick={() => setExpandedQuoteId(expandedQuoteId === quote.id ? null : quote.id)}
+                    >
                       <p className="text-sm font-bold text-blue-700">¥{quote.total.toLocaleString()}<span className="text-xs font-normal text-gray-400">（税込）</span></p>
                     </div>
-                    <span className="text-gray-400 text-sm">{expandedQuoteId === quote.id ? "▲" : "▼"}</span>
+                    {/* 削除ボタン */}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setQuoteDeleteConfirmId(quote.id); }}
+                      className="text-red-300 hover:text-red-500 text-sm font-bold shrink-0 px-1"
+                      title="この見積を削除"
+                    >
+                      ×
+                    </button>
+                    <span
+                      className="text-gray-400 text-sm cursor-pointer"
+                      onClick={() => setExpandedQuoteId(expandedQuoteId === quote.id ? null : quote.id)}
+                    >
+                      {expandedQuoteId === quote.id ? "▲" : "▼"}
+                    </span>
                   </div>
 
+                  {/* 展開内容 */}
                   {expandedQuoteId === quote.id && (
                     <div className="border-t border-gray-100 px-5 py-4">
                       <table className="w-full text-xs mb-3">
@@ -306,7 +317,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                         <div className="flex gap-2">
                           <button
                             type="button"
-                            onClick={() => downloadWarranty(quote)}
+                            onClick={() => openPreviewWarranty(quote)}
                             disabled={warrantyLoadingId === quote.id}
                             className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 disabled:opacity-50"
                           >
@@ -314,7 +325,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                           </button>
                           <button
                             type="button"
-                            onClick={() => downloadPDF(quote)}
+                            onClick={() => openPreviewPDF(quote)}
                             disabled={pdfLoadingId === quote.id}
                             className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
                           >
@@ -331,32 +342,36 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      {/* 削除確認ダイアログ */}
+      {/* PDFプレビュー */}
+      {previewPdf && (
+        <PDFPreviewModal url={previewPdf.url} filename={previewPdf.filename} onClose={closePreview} />
+      )}
+
+      {/* 患者削除確認 */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
             <h2 className="text-base font-bold text-gray-800 mb-2">患者を削除しますか？</h2>
-            <p className="text-sm text-gray-500 mb-1">
-              <span className="font-semibold text-gray-700">{patient.name}</span>（{patient.code}）を削除します。
-            </p>
+            <p className="text-sm text-gray-500 mb-1"><span className="font-semibold text-gray-700">{patient.name}</span>（{patient.code}）を削除します。</p>
             <p className="text-xs text-gray-400 mb-5">この操作は取り消せません。関連する見積データとの紐付けも解除されます。</p>
             <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(false)}
-                disabled={deleting}
-                className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50"
-              >
-                キャンセル
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="flex-1 bg-red-500 text-white py-2 rounded-xl text-sm font-semibold hover:bg-red-600 disabled:opacity-50"
-              >
-                {deleting ? "削除中..." : "削除する"}
-              </button>
+              <button type="button" onClick={() => setShowDeleteConfirm(false)} disabled={deleting} className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50">キャンセル</button>
+              <button type="button" onClick={handleDeletePatient} disabled={deleting} className="flex-1 bg-red-500 text-white py-2 rounded-xl text-sm font-semibold hover:bg-red-600 disabled:opacity-50">{deleting ? "削除中..." : "削除する"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 見積削除確認 */}
+      {quoteDeleteConfirmId && quoteToDelete && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
+            <h2 className="text-base font-bold text-gray-800 mb-2">見積を削除しますか？</h2>
+            <p className="text-sm text-gray-500 mb-1">{formatDate(quoteToDelete.createdAt)} の見積を削除します。</p>
+            <p className="text-xs text-gray-400 mb-5">この操作は取り消せません。</p>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setQuoteDeleteConfirmId(null)} disabled={!!deletingQuoteId} className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50">キャンセル</button>
+              <button type="button" onClick={() => handleDeleteQuote(quoteDeleteConfirmId)} disabled={!!deletingQuoteId} className="flex-1 bg-red-500 text-white py-2 rounded-xl text-sm font-semibold hover:bg-red-600 disabled:opacity-50">{deletingQuoteId ? "削除中..." : "削除する"}</button>
             </div>
           </div>
         </div>
