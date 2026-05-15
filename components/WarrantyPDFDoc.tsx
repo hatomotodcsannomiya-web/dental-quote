@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
-import { WARRANTY_TABLE, type WarrantyItem } from "@/lib/warrantyMap";
+import { WARRANTY_TABLE, formatDateJP, type WarrantyItem } from "@/lib/warrantyMap";
 
 const FONT = "NotoSansJP";
 const NAVY = "#1a3a5c";
@@ -79,14 +79,13 @@ interface Props {
   patientName: string;
   patientCode: string;
   issuedDate: string;
-  treatmentDate: string;
   items: WarrantyItem[];
 }
 
 // ページ2の治療記録行数は最低12行
 const MIN_ROWS = 12;
 
-export default function WarrantyPDFDoc({ patientName, patientCode, issuedDate, treatmentDate, items }: Props) {
+export default function WarrantyPDFDoc({ patientName, patientCode, issuedDate, items }: Props) {
   const filledItems = [
     ...items,
     ...Array.from({ length: Math.max(0, MIN_ROWS - items.length) }, () => null),
@@ -205,7 +204,7 @@ export default function WarrantyPDFDoc({ patientName, patientCode, issuedDate, t
             return (
               <View key={i} style={RowStyle}>
                 <View style={s.ttDate}>
-                  <Text>{item ? treatmentDate : ""}</Text>
+                  <Text>{item ? formatDateJP(item.treatmentDate) : ""}</Text>
                 </View>
                 <View style={s.ttType}>
                   <Text>{item ? `${item.warrantyCategory}\n${item.toothLabel}` : ""}</Text>

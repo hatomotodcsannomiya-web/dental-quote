@@ -37,16 +37,25 @@ export interface WarrantyItem {
   toothLabel: string;
   treatmentName: string;
   warrantyCategory: string;
+  treatmentDate: string; // YYYY-MM-DD（PDF表示用に変換）
 }
 
 export function filterWarrantyItems(
-  items: { toothLabel: string; treatmentName: string }[]
+  items: { toothLabel: string; treatmentName: string }[],
+  defaultDate = ""
 ): WarrantyItem[] {
   const result: WarrantyItem[] = [];
   for (const item of items) {
-    if (item.treatmentName.startsWith("└ ")) continue; // オプション行はスキップ
+    if (item.treatmentName.startsWith("└ ")) continue;
     const cat = mapToWarrantyCategory(item.treatmentName);
-    if (cat) result.push({ ...item, warrantyCategory: cat });
+    if (cat) result.push({ ...item, warrantyCategory: cat, treatmentDate: defaultDate });
   }
   return result;
+}
+
+/** YYYY-MM-DD → 日本語表示（2025年5月15日）*/
+export function formatDateJP(dateStr: string): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
 }

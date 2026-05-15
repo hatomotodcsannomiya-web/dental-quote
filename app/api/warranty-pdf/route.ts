@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 import { renderToBuffer, Font } from "@react-pdf/renderer";
 import { createElement } from "react";
 import WarrantyPDFDoc from "@/components/WarrantyPDFDoc";
-import { filterWarrantyItems } from "@/lib/warrantyMap";
+import { type WarrantyItem } from "@/lib/warrantyMap";
 import { NextRequest } from "next/server";
 import path from "path";
 import fs from "fs";
@@ -25,23 +25,19 @@ export async function POST(req: NextRequest) {
   try {
     ensureFont();
 
-    const { patientName, patientCode, issuedDate, treatmentDate, items } = await req.json() as {
+    const { patientName, patientCode, issuedDate, items } = await req.json() as {
       patientName: string;
       patientCode: string;
       issuedDate: string;
-      treatmentDate: string;
-      items: { toothLabel: string; treatmentName: string }[];
+      items: WarrantyItem[];
     };
-
-    const warrantyItems = filterWarrantyItems(items);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const element = createElement(WarrantyPDFDoc as any, {
       patientName,
       patientCode,
       issuedDate,
-      treatmentDate,
-      items: warrantyItems,
+      items,
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const buffer: Buffer = await renderToBuffer(element as any);

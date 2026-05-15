@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import PDFPreviewModal from "@/components/PDFPreviewModal";
+import { filterWarrantyItems, type WarrantyItem } from "@/lib/warrantyMap";
 
 interface QuoteItem {
   id: number;
@@ -50,7 +51,10 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
 
   // PDF生成ローディング
   const [pdfLoadingId, setPdfLoadingId] = useState<number | null>(null);
-  const [warrantyLoadingId, setWarrantyLoadingId] = useState<number | null>(null);
+
+  // 保証書日付編集
+  const [warrantyEditData, setWarrantyEditData] = useState<{ quote: Quote; items: WarrantyItem[] } | null>(null);
+  const [warrantySubmitting, setWarrantySubmitting] = useState(false);
 
   // プレビュー
   const [previewPdf, setPreviewPdf] = useState<{ url: string; filename: string } | null>(null);
@@ -117,15 +121,22 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     }
   }
 
-  async function openPreviewWarranty(quote: Quote) {
-    setWarrantyLoadingId(quote.id);
+  function openWarrantyForm(quote: Quote) {
+    const defaultDate = new Date(quote.createdAt).toISOString().slice(0, 10);
+    const rawItems = quote.items.map((item) => ({
+      toothLabel: item.toothLabel,
+      treatmentName: item.treatment.name,
+    }));
+    const items = filterWarrantyItems(rawItems, defaultDate);
+    if (items.length === 0) return;
+    setWarrantyEditData({ quote, items });
+  }
+
+  async function submitWarrantyPDF() {
+    if (!warrantyEditData) return;
+    setWarrantySubmitting(true);
     try {
       const issuedDate = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
-      const treatmentDate = new Date(quote.createdAt).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
-      const items = quote.items.map((item) => ({
-        toothLabel: item.toothLabel,
-        treatmentName: item.treatment.name,
-      }));
       const res = await fetch("/api/warranty-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -133,15 +144,15 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
           patientName: patient?.name ?? "",
           patientCode: patient?.code ?? "",
           issuedDate,
-          treatmentDate,
-          items,
+          items: warrantyEditData.items,
         }),
       });
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      setPreviewPdf({ url, filename: `補綴保証書_${patient?.code}_${quote.id}.pdf` });
+      setPreviewPdf({ url, filename: `補綴保証書_${patient?.code}_${warrantyEditData.quote.id}.pdf` });
+      setWarrantyEditData(null);
     } finally {
-      setWarrantyLoadingId(null);
+      setWarrantySubmitting(false);
     }
   }
 
@@ -324,11 +335,10 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                         <div className="flex gap-2">
                           <button
                             type="button"
-                            onClick={() => openPreviewWarranty(quote)}
-                            disabled={warrantyLoadingId === quote.id}
-                            className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                            onClick={() => openWarrantyForm(quote)}
+                            className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700"
                           >
-                            {warrantyLoadingId === quote.id ? "生成中..." : "保証書"}
+                            保証書
                           </button>
                           <button
                             type="button"
@@ -352,6 +362,38 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
       {/* PDFプレビュー */}
       {previewPdf && (
         <PDFPreviewModal url={previewPdf.url} filename={previewPdf.filename} onClose={closePreview} />
+      )}
+
+      {/* 保証書セット日編集モーダル */}
+      {warrantyEditData && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full max-h-[80vh] flex flex-col">
+            <h2 className="text-base font-bold text-gray-800 mb-2">セット日を確認・編集</h2>
+            <p className="text-xs text-gray-400 mb-4">各治療のセット日を入力してください。</p>
+            <div className="overflow-y-auto flex-1 space-y-2 mb-4">
+              {warrantyEditData.items.map((item, i) => (
+                <div key={i} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-700 truncate">{item.toothLabel} {item.treatmentName}</p>
+                  </div>
+                  <input
+                    type="date"
+                    value={item.treatmentDate}
+                    onChange={(e) => setWarrantyEditData((prev) => prev ? {
+                      ...prev,
+                      items: prev.items.map((it, idx) => idx === i ? { ...it, treatmentDate: e.target.value } : it),
+                    } : null)}
+                    className="border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setWarrantyEditData(null)} disabled={warrantySubmitting} className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50">キャンセル</button>
+              <button type="button" onClick={submitWarrantyPDF} disabled={warrantySubmitting} className="flex-1 bg-emerald-600 text-white py-2 rounded-xl text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50">{warrantySubmitting ? "生成中..." : "保証書を生成"}</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 患者削除確認 */}

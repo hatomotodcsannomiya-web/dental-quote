@@ -6,6 +6,7 @@ import DentalChart from "@/components/DentalChart";
 import TreatmentAssigner from "@/components/TreatmentAssigner";
 import MultiToothAssigner from "@/components/MultiToothAssigner";
 import PDFPreviewModal from "@/components/PDFPreviewModal";
+import { filterWarrantyItems, type WarrantyItem } from "@/lib/warrantyMap";
 import type { CategoryWithTreatments, QuoteLineItem } from "@/lib/types";
 import { getToothById } from "@/lib/teeth";
 
@@ -37,6 +38,7 @@ function QuoteNewInner() {
   const [savedQuoteId, setSavedQuoteId] = useState<number | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [warrantyLoading, setWarrantyLoading] = useState(false);
+  const [warrantyEditData, setWarrantyEditData] = useState<WarrantyItem[] | null>(null);
   const [previewPdf, setPreviewPdf] = useState<{ url: string; filename: string } | null>(null);
 
   useEffect(() => {
@@ -107,24 +109,36 @@ function QuoteNewInner() {
     }
   }
 
-  async function openPreviewWarranty() {
+  function openWarrantyForm() {
+    const defaultDate = new Date().toISOString().slice(0, 10);
+    const rawItems = items.map((item) => ({
+      toothLabel: item.toothLabel,
+      treatmentName: item.treatmentName,
+    }));
+    const warrantyItems = filterWarrantyItems(rawItems, defaultDate);
+    if (warrantyItems.length === 0) return;
+    setWarrantyEditData(warrantyItems);
+  }
+
+  async function submitWarrantyPDF() {
+    if (!warrantyEditData) return;
     setWarrantyLoading(true);
     try {
-      const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
+      const issuedDate = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
       const res = await fetch("/api/warranty-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patientName: patient?.name ?? "（氏名未入力）",
           patientCode: patient?.code ?? "",
-          issuedDate: today,
-          treatmentDate: today,
-          items: items.map((item) => ({ toothLabel: item.toothLabel, treatmentName: item.treatmentName })),
+          issuedDate,
+          items: warrantyEditData,
         }),
       });
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      setPreviewPdf({ url, filename: `補綴保証書_${patient?.code ?? "患者"}_${today.replace(/[年月日]/g, "-")}.pdf` });
+      setPreviewPdf({ url, filename: `補綴保証書_${patient?.code ?? "患者"}_${issuedDate.replace(/[年月日]/g, "-")}.pdf` });
+      setWarrantyEditData(null);
     } finally {
       setWarrantyLoading(false);
     }
@@ -386,11 +400,10 @@ function QuoteNewInner() {
               </button>
               <button
                 type="button"
-                onClick={openPreviewWarranty}
-                disabled={warrantyLoading}
-                className="bg-emerald-600 text-white px-6 py-3 rounded-xl font-semibold text-sm hover:bg-emerald-700 disabled:opacity-60 shadow"
+                onClick={openWarrantyForm}
+                className="bg-emerald-600 text-white px-6 py-3 rounded-xl font-semibold text-sm hover:bg-emerald-700 shadow"
               >
-                {warrantyLoading ? "生成中..." : "保証書をプレビュー"}
+                保証書をプレビュー
               </button>
               <button
                 type="button"
@@ -404,6 +417,35 @@ function QuoteNewInner() {
           </>
         )}
       </main>
+
+      {/* 保証書セット日編集モーダル */}
+      {warrantyEditData && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full max-h-[80vh] flex flex-col">
+            <h2 className="text-base font-bold text-gray-800 mb-2">セット日を確認・編集</h2>
+            <p className="text-xs text-gray-400 mb-4">各治療のセット日を入力してください。</p>
+            <div className="overflow-y-auto flex-1 space-y-2 mb-4">
+              {warrantyEditData.map((item, i) => (
+                <div key={i} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-700 truncate">{item.toothLabel} {item.treatmentName}</p>
+                  </div>
+                  <input
+                    type="date"
+                    value={item.treatmentDate}
+                    onChange={(e) => setWarrantyEditData((prev) => prev ? prev.map((it, idx) => idx === i ? { ...it, treatmentDate: e.target.value } : it) : null)}
+                    className="border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setWarrantyEditData(null)} disabled={warrantyLoading} className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50">キャンセル</button>
+              <button type="button" onClick={submitWarrantyPDF} disabled={warrantyLoading} className="flex-1 bg-emerald-600 text-white py-2 rounded-xl text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50">{warrantyLoading ? "生成中..." : "保証書を生成"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PDFプレビュー */}
       {previewPdf && (
