@@ -32,6 +32,16 @@ interface Patient {
   quotes: Quote[];
 }
 
+interface SavedWarranty {
+  id: number;
+  quoteId: number | null;
+  patientName: string;
+  patientCode: string;
+  issuedDate: string;
+  items: string;
+  createdAt: string;
+}
+
 export default function PatientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -59,6 +69,10 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
   // プレビュー
   const [previewPdf, setPreviewPdf] = useState<{ url: string; filename: string } | null>(null);
 
+  // 保証書履歴
+  const [warranties, setWarranties] = useState<SavedWarranty[]>([]);
+  const [warrantyPdfLoadingId, setWarrantyPdfLoadingId] = useState<number | null>(null);
+
   async function load() {
     const res = await fetch(`/api/patients/${id}`);
     if (!res.ok) { setNotFound(true); setLoading(false); return; }
@@ -68,7 +82,12 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, [id]);
+  async function loadWarranties() {
+    const res = await fetch(`/api/warranties?patientId=${id}`);
+    if (res.ok) setWarranties(await res.json());
+  }
+
+  useEffect(() => { load(); loadWarranties(); }, [id]);
 
   async function handleEditSave() {
     if (!editForm.name.trim()) return;
@@ -137,22 +156,39 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     setWarrantySubmitting(true);
     try {
       const issuedDate = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
-      const res = await fetch("/api/warranty-pdf", {
+      const saveRes = await fetch("/api/warranties", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          patientId: patient?.id ?? null,
+          quoteId: warrantyEditData.quote.id,
           patientName: patient?.name ?? "",
           patientCode: patient?.code ?? "",
           issuedDate,
           items: warrantyEditData.items,
         }),
       });
-      const blob = await res.blob();
+      const saved = await saveRes.json();
+      const pdfRes = await fetch(`/api/warranties/${saved.id}/pdf`);
+      const blob = await pdfRes.blob();
       const url = URL.createObjectURL(blob);
-      setPreviewPdf({ url, filename: `補綴保証書_${patient?.code}_${warrantyEditData.quote.id}.pdf` });
+      setPreviewPdf({ url, filename: `補綴保証書_${patient?.code}_${saved.id}.pdf` });
       setWarrantyEditData(null);
+      loadWarranties();
     } finally {
       setWarrantySubmitting(false);
+    }
+  }
+
+  async function downloadSavedWarrantyPDF(warranty: SavedWarranty) {
+    setWarrantyPdfLoadingId(warranty.id);
+    try {
+      const res = await fetch(`/api/warranties/${warranty.id}/pdf`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      setPreviewPdf({ url, filename: `補綴保証書_${warranty.patientCode}_${warranty.id}.pdf` });
+    } finally {
+      setWarrantyPdfLoadingId(null);
     }
   }
 
@@ -357,6 +393,38 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
             </div>
           )}
         </div>
+        {/* 保証書履歴 */}
+        <div>
+          <h2 className="text-sm font-semibold text-gray-700 mb-3">
+            保証書履歴
+            <span className="ml-2 text-gray-400 font-normal">{warranties.length}件</span>
+          </h2>
+          {warranties.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-400 text-sm">まだ保証書がありません</div>
+          ) : (
+            <div className="space-y-2">
+              {warranties.map((w) => {
+                const parsedItems = JSON.parse(w.items) as WarrantyItem[];
+                return (
+                  <div key={w.id} className="bg-white rounded-xl shadow-sm px-5 py-3 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-700">{w.issuedDate}</p>
+                      <p className="text-xs text-gray-400">{parsedItems.length}項目</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => downloadSavedWarrantyPDF(w)}
+                      disabled={warrantyPdfLoadingId === w.id}
+                      className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 disabled:opacity-50 shrink-0"
+                    >
+                      {warrantyPdfLoadingId === w.id ? "生成中..." : "PDFダウンロード"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* PDFプレビュー */}
@@ -390,7 +458,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
             </div>
             <div className="flex gap-3">
               <button type="button" onClick={() => setWarrantyEditData(null)} disabled={warrantySubmitting} className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50">キャンセル</button>
-              <button type="button" onClick={submitWarrantyPDF} disabled={warrantySubmitting} className="flex-1 bg-emerald-600 text-white py-2 rounded-xl text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50">{warrantySubmitting ? "生成中..." : "保証書を生成"}</button>
+              <button type="button" onClick={submitWarrantyPDF} disabled={warrantySubmitting} className="flex-1 bg-emerald-600 text-white py-2 rounded-xl text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50">{warrantySubmitting ? "保存中..." : "保存して生成"}</button>
             </div>
           </div>
         </div>

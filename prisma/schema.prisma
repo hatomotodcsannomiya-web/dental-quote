@@ -43,13 +43,14 @@ model TreatmentOption {
 }
 
 model Patient {
-  id        Int      @id @default(autoincrement())
-  code      String   @unique
-  name      String
-  memo      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  quotes    Quote[]
+  id         Int        @id @default(autoincrement())
+  code       String     @unique
+  name       String
+  memo       String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  quotes     Quote[]
+  warranties Warranty[]
 }
 
 model Quote {
@@ -63,7 +64,21 @@ model Quote {
   tax          Int         @default(0)
   total        Int         @default(0)
   items        QuoteItem[]
+  warranties   Warranty[]
   createdAt    DateTime    @default(now())
+}
+
+model Warranty {
+  id          Int      @id @default(autoincrement())
+  patientId   Int?
+  patient     Patient? @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  quoteId     Int?
+  quote       Quote?   @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  patientName String
+  patientCode String
+  issuedDate  String
+  items       String
+  createdAt   DateTime @default(now())
 }
 
 model QuoteItem {

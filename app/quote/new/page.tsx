@@ -125,19 +125,23 @@ function QuoteNewInner() {
     setWarrantyLoading(true);
     try {
       const issuedDate = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
-      const res = await fetch("/api/warranty-pdf", {
+      const saveRes = await fetch("/api/warranties", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          patientId: patient?.id ?? null,
+          quoteId: savedQuoteId,
           patientName: patient?.name ?? "（氏名未入力）",
           patientCode: patient?.code ?? "",
           issuedDate,
           items: warrantyEditData,
         }),
       });
-      const blob = await res.blob();
+      const saved = await saveRes.json();
+      const pdfRes = await fetch(`/api/warranties/${saved.id}/pdf`);
+      const blob = await pdfRes.blob();
       const url = URL.createObjectURL(blob);
-      setPreviewPdf({ url, filename: `補綴保証書_${patient?.code ?? "患者"}_${issuedDate.replace(/[年月日]/g, "-")}.pdf` });
+      setPreviewPdf({ url, filename: `補綴保証書_${patient?.code ?? "患者"}_${saved.id}.pdf` });
       setWarrantyEditData(null);
     } finally {
       setWarrantyLoading(false);
@@ -441,7 +445,7 @@ function QuoteNewInner() {
             </div>
             <div className="flex gap-3">
               <button type="button" onClick={() => setWarrantyEditData(null)} disabled={warrantyLoading} className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50">キャンセル</button>
-              <button type="button" onClick={submitWarrantyPDF} disabled={warrantyLoading} className="flex-1 bg-emerald-600 text-white py-2 rounded-xl text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50">{warrantyLoading ? "生成中..." : "保証書を生成"}</button>
+              <button type="button" onClick={submitWarrantyPDF} disabled={warrantyLoading} className="flex-1 bg-emerald-600 text-white py-2 rounded-xl text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50">{warrantyLoading ? "保存中..." : "保存して生成"}</button>
             </div>
           </div>
         </div>
