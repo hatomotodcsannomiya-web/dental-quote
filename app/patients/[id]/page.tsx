@@ -38,6 +38,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
   const [notFound, setNotFound] = useState(false);
   const [expandedQuoteId, setExpandedQuoteId] = useState<number | null>(null);
   const [pdfLoadingId, setPdfLoadingId] = useState<number | null>(null);
+  const [warrantyLoadingId, setWarrantyLoadingId] = useState<number | null>(null);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", memo: "" });
   const [saving, setSaving] = useState(false);
@@ -66,6 +67,38 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     setSaving(false);
     setEditing(false);
     load();
+  }
+
+  async function downloadWarranty(quote: Quote) {
+    setWarrantyLoadingId(quote.id);
+    try {
+      const issuedDate = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
+      const treatmentDate = new Date(quote.createdAt).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
+      const items = quote.items.map((item) => ({
+        toothLabel: item.toothLabel,
+        treatmentName: item.treatment.name,
+      }));
+      const res = await fetch("/api/warranty-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientName: patient?.name ?? "",
+          patientCode: patient?.code ?? "",
+          issuedDate,
+          treatmentDate,
+          items,
+        }),
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `補綴保証書_${patient?.code}_${quote.id}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setWarrantyLoadingId(null);
+    }
   }
 
   async function handleDelete() {
@@ -270,14 +303,24 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                           <span>税 ¥{quote.tax.toLocaleString()}</span>
                           <span className="font-semibold">合計 ¥{quote.total.toLocaleString()}</span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => downloadPDF(quote)}
-                          disabled={pdfLoadingId === quote.id}
-                          className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                        >
-                          {pdfLoadingId === quote.id ? "生成中..." : "PDF"}
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => downloadWarranty(quote)}
+                            disabled={warrantyLoadingId === quote.id}
+                            className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                          >
+                            {warrantyLoadingId === quote.id ? "生成中..." : "保証書"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => downloadPDF(quote)}
+                            disabled={pdfLoadingId === quote.id}
+                            className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {pdfLoadingId === quote.id ? "生成中..." : "見積PDF"}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}

@@ -35,6 +35,7 @@ function QuoteNewInner() {
   const [saved, setSaved] = useState(false);
   const [savedQuoteId, setSavedQuoteId] = useState<number | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [warrantyLoading, setWarrantyLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -94,6 +95,33 @@ function QuoteNewInner() {
       setSavedQuoteId(data.id);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function downloadWarranty() {
+    setWarrantyLoading(true);
+    try {
+      const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
+      const res = await fetch("/api/warranty-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientName: patient?.name ?? "（氏名未入力）",
+          patientCode: patient?.code ?? "",
+          issuedDate: today,
+          treatmentDate: today,
+          items: items.map((item) => ({ toothLabel: item.toothLabel, treatmentName: item.treatmentName })),
+        }),
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `補綴保証書_${patient?.code ?? "患者"}_${today.replace(/[年月日]/g, "-")}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setWarrantyLoading(false);
     }
   }
 
@@ -353,11 +381,19 @@ function QuoteNewInner() {
               </button>
               <button
                 type="button"
+                onClick={downloadWarranty}
+                disabled={warrantyLoading}
+                className="bg-emerald-600 text-white px-6 py-3 rounded-xl font-semibold text-sm hover:bg-emerald-700 disabled:opacity-60 shadow"
+              >
+                {warrantyLoading ? "生成中..." : "保証書を発行"}
+              </button>
+              <button
+                type="button"
                 onClick={downloadPDF}
                 disabled={pdfLoading}
                 className="bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold text-sm hover:bg-blue-700 disabled:opacity-60 shadow"
               >
-                {pdfLoading ? "PDF生成中..." : "PDFをダウンロード"}
+                {pdfLoading ? "PDF生成中..." : "見積PDFをダウンロード"}
               </button>
             </div>
           </>
