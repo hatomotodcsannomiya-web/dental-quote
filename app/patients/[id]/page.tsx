@@ -72,6 +72,8 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
   // 保証書履歴
   const [warranties, setWarranties] = useState<SavedWarranty[]>([]);
   const [warrantyPdfLoadingId, setWarrantyPdfLoadingId] = useState<number | null>(null);
+  const [warrantyDeleteConfirmId, setWarrantyDeleteConfirmId] = useState<number | null>(null);
+  const [deletingWarrantyId, setDeletingWarrantyId] = useState<number | null>(null);
 
   async function load() {
     const res = await fetch(`/api/patients/${id}`);
@@ -178,6 +180,14 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     } finally {
       setWarrantySubmitting(false);
     }
+  }
+
+  async function handleDeleteWarranty(warrantyId: number) {
+    setDeletingWarrantyId(warrantyId);
+    await fetch(`/api/warranties/${warrantyId}`, { method: "DELETE" });
+    setDeletingWarrantyId(null);
+    setWarrantyDeleteConfirmId(null);
+    loadWarranties();
   }
 
   async function downloadSavedWarrantyPDF(warranty: SavedWarranty) {
@@ -419,6 +429,14 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                     >
                       {warrantyPdfLoadingId === w.id ? "生成中..." : "PDFダウンロード"}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setWarrantyDeleteConfirmId(w.id)}
+                      className="text-red-300 hover:text-red-500 text-sm font-bold shrink-0 px-1"
+                      title="この保証書を削除"
+                    >
+                      ×
+                    </button>
                   </div>
                 );
               })}
@@ -474,6 +492,21 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
             <div className="flex gap-3">
               <button type="button" onClick={() => setShowDeleteConfirm(false)} disabled={deleting} className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50">キャンセル</button>
               <button type="button" onClick={handleDeletePatient} disabled={deleting} className="flex-1 bg-red-500 text-white py-2 rounded-xl text-sm font-semibold hover:bg-red-600 disabled:opacity-50">{deleting ? "削除中..." : "削除する"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 保証書削除確認 */}
+      {warrantyDeleteConfirmId && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
+            <h2 className="text-base font-bold text-gray-800 mb-2">保証書を削除しますか？</h2>
+            <p className="text-sm text-gray-500 mb-1">この保証書を削除します。</p>
+            <p className="text-xs text-gray-400 mb-5">この操作は取り消せません。</p>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setWarrantyDeleteConfirmId(null)} disabled={!!deletingWarrantyId} className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50">キャンセル</button>
+              <button type="button" onClick={() => handleDeleteWarranty(warrantyDeleteConfirmId)} disabled={!!deletingWarrantyId} className="flex-1 bg-red-500 text-white py-2 rounded-xl text-sm font-semibold hover:bg-red-600 disabled:opacity-50">{deletingWarrantyId ? "削除中..." : "削除する"}</button>
             </div>
           </div>
         </div>
