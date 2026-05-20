@@ -14,6 +14,7 @@ interface Quote {
   id: number;
   patientName: string;
   patientId: string | null;
+  patientFkId: number | null;
   memo: string | null;
   subtotal: number;
   tax: number;
@@ -143,7 +144,17 @@ export default function QuotesPage() {
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm text-gray-800">{quote.patientName}</span>
+                      {quote.patientFkId ? (
+                        <a
+                          href={`/patients/${quote.patientFkId}`}
+                          className="font-semibold text-sm text-blue-700 hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {quote.patientName}
+                        </a>
+                      ) : (
+                        <span className="font-semibold text-sm text-gray-800">{quote.patientName}</span>
+                      )}
                       {quote.patientId && (
                         <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">{quote.patientId}</span>
                       )}

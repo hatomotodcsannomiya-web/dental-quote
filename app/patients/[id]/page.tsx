@@ -427,8 +427,15 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                       disabled={warrantyPdfLoadingId === w.id}
                       className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 disabled:opacity-50 shrink-0"
                     >
-                      {warrantyPdfLoadingId === w.id ? "生成中..." : "PDFダウンロード"}
+                      {warrantyPdfLoadingId === w.id ? "読込中..." : "プレビュー"}
                     </button>
+                    <a
+                      href={`/api/warranties/${w.id}/pdf`}
+                      download={`補綴保証書_${w.patientCode}_${w.id}.pdf`}
+                      className="text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-200 shrink-0"
+                    >
+                      ダウンロード
+                    </a>
                     <button
                       type="button"
                       onClick={() => setWarrantyDeleteConfirmId(w.id)}
