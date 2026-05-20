@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { CategoryWithTreatments, TreatmentItem } from "@/lib/types";
+import type { CategoryWithTreatments, TreatmentItem, TreatmentOption } from "@/lib/types";
 
 type AdminTab = "categories" | "treatments" | "password";
 
@@ -197,6 +197,57 @@ function TreatmentsTab({ categories, onReload }: { categories: CategoryWithTreat
   const [form, setForm] = useState({ name: "", categoryId: 0, priceType: "per_tooth", unitPrice: 0, unit: "本" });
   const [newForm, setNewForm] = useState({ name: "", categoryId: categories[0]?.id ?? 0, priceType: "per_tooth", unitPrice: 0, unit: "本" });
 
+  // オプション管理
+  const [expandedOptionsId, setExpandedOptionsId] = useState<number | null>(null);
+  const [loadedOptions, setLoadedOptions] = useState<Record<number, TreatmentOption[]>>({});
+  const [editingOptionId, setEditingOptionId] = useState<number | null>(null);
+  const [optionForm, setOptionForm] = useState({ name: "", price: 0 });
+  const [newOptionForms, setNewOptionForms] = useState<Record<number, { name: string; price: string }>>({});
+
+  async function loadOptions(treatmentId: number) {
+    const res = await fetch(`/api/treatments/${treatmentId}/options`);
+    const opts = await res.json();
+    setLoadedOptions((prev) => ({ ...prev, [treatmentId]: opts }));
+  }
+
+  async function toggleOptions(treatmentId: number) {
+    if (expandedOptionsId === treatmentId) {
+      setExpandedOptionsId(null);
+    } else {
+      setExpandedOptionsId(treatmentId);
+      loadOptions(treatmentId);
+    }
+  }
+
+  async function addOption(treatmentId: number) {
+    const f = newOptionForms[treatmentId] ?? { name: "", price: "0" };
+    if (!f.name.trim()) return;
+    const currentOptions = loadedOptions[treatmentId] ?? [];
+    await fetch(`/api/treatments/${treatmentId}/options`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: f.name.trim(), price: Number(f.price), sortOrder: currentOptions.length }),
+    });
+    setNewOptionForms((prev) => ({ ...prev, [treatmentId]: { name: "", price: "0" } }));
+    loadOptions(treatmentId);
+  }
+
+  async function updateOption(treatmentId: number, optionId: number) {
+    await fetch(`/api/treatments/${treatmentId}/options/${optionId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: optionForm.name, price: optionForm.price }),
+    });
+    setEditingOptionId(null);
+    loadOptions(treatmentId);
+  }
+
+  async function deleteOption(treatmentId: number, optionId: number) {
+    if (!confirm("このオプションを削除しますか？")) return;
+    await fetch(`/api/treatments/${treatmentId}/options/${optionId}`, { method: "DELETE" });
+    loadOptions(treatmentId);
+  }
+
   async function addTreatment() {
     if (!newForm.name.trim() || !newForm.categoryId) return;
     const cat = categories.find((c) => c.id === newForm.categoryId);
@@ -311,28 +362,113 @@ function TreatmentsTab({ categories, onReload }: { categories: CategoryWithTreat
           ) : (
             <div className="space-y-2">
               {cat.treatments.map((t) => (
-                <div key={t.id} className={`flex items-center gap-2 py-2 px-2 rounded-lg ${!t.isActive ? "opacity-50 bg-gray-50" : "bg-white border border-gray-100"}`}>
-                  {editingId === t.id ? (
-                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="border rounded px-2 py-1 text-xs col-span-2" />
-                      <input type="number" value={form.unitPrice} onChange={(e) => setForm({ ...form, unitPrice: Number(e.target.value) })} className="border rounded px-2 py-1 text-xs" />
-                      <input type="text" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="border rounded px-2 py-1 text-xs" />
-                      <div className="col-span-2 flex gap-2">
-                        <button type="button" onClick={() => updateTreatment(t.id)} className="text-xs text-blue-600 hover:text-blue-800">保存</button>
-                        <button type="button" onClick={() => setEditingId(null)} className="text-xs text-gray-400">キャンセル</button>
+                <div key={t.id} className={`rounded-lg border ${!t.isActive ? "opacity-50 border-gray-100" : "border-gray-100"}`}>
+                  {/* 治療行 */}
+                  <div className={`flex items-center gap-2 py-2 px-2 ${!t.isActive ? "bg-gray-50" : "bg-white"}`}>
+                    {editingId === t.id ? (
+                      <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="border rounded px-2 py-1 text-xs col-span-2" />
+                        <input type="number" value={form.unitPrice} onChange={(e) => setForm({ ...form, unitPrice: Number(e.target.value) })} className="border rounded px-2 py-1 text-xs" />
+                        <input type="text" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="border rounded px-2 py-1 text-xs" />
+                        <div className="col-span-2 flex gap-2">
+                          <button type="button" onClick={() => updateTreatment(t.id)} className="text-xs text-blue-600 hover:text-blue-800">保存</button>
+                          <button type="button" onClick={() => setEditingId(null)} className="text-xs text-gray-400">キャンセル</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="flex-1 text-sm">{t.name}</span>
+                        <span className="text-xs text-gray-500">¥{t.unitPrice.toLocaleString()}/{t.unit}</span>
+                        <span className="text-xs text-gray-400">{t.priceType === "per_tooth" ? "本数×単価" : "一律"}</span>
+                        <button
+                          type="button"
+                          onClick={() => toggleOptions(t.id)}
+                          className={`text-xs px-2 py-0.5 rounded border ${expandedOptionsId === t.id ? "border-purple-300 text-purple-700 bg-purple-50" : "border-gray-200 text-gray-500 hover:border-purple-300 hover:text-purple-600"}`}
+                        >
+                          オプション {t.options.length > 0 ? `(${t.options.length})` : ""}
+                        </button>
+                        <button type="button" onClick={() => { setEditingId(t.id); setForm({ name: t.name, categoryId: t.categoryId, priceType: t.priceType, unitPrice: t.unitPrice, unit: t.unit }); }} className="text-xs text-blue-500 hover:text-blue-700">編集</button>
+                        <button type="button" onClick={() => toggleActive(t)} className={`text-xs ${t.isActive ? "text-orange-400 hover:text-orange-600" : "text-green-500 hover:text-green-700"}`}>
+                          {t.isActive ? "無効化" : "有効化"}
+                        </button>
+                        <button type="button" onClick={() => deleteTreatment(t.id)} className="text-xs text-red-400 hover:text-red-600">削除</button>
+                      </>
+                    )}
+                  </div>
+
+                  {/* オプションパネル */}
+                  {expandedOptionsId === t.id && (
+                    <div className="border-t border-gray-100 bg-purple-50 px-4 py-3">
+                      <p className="text-xs font-semibold text-purple-700 mb-2">オプション管理</p>
+
+                      {/* 既存オプション一覧 */}
+                      {(loadedOptions[t.id] ?? []).length === 0 ? (
+                        <p className="text-xs text-gray-400 mb-2">オプションなし</p>
+                      ) : (
+                        <div className="space-y-1 mb-3">
+                          {(loadedOptions[t.id] ?? []).map((opt) => (
+                            <div key={opt.id} className="flex items-center gap-2 bg-white rounded px-2 py-1.5 border border-purple-100">
+                              {editingOptionId === opt.id ? (
+                                <>
+                                  <input
+                                    type="text"
+                                    value={optionForm.name}
+                                    onChange={(e) => setOptionForm({ ...optionForm, name: e.target.value })}
+                                    className="border rounded px-2 py-0.5 text-xs flex-1 focus:outline-none"
+                                    autoFocus
+                                  />
+                                  <input
+                                    type="number"
+                                    value={optionForm.price}
+                                    onChange={(e) => setOptionForm({ ...optionForm, price: Number(e.target.value) })}
+                                    className="border rounded px-2 py-0.5 text-xs w-24 focus:outline-none"
+                                    min={0}
+                                  />
+                                  <button type="button" onClick={() => updateOption(t.id, opt.id)} className="text-xs text-blue-600 hover:text-blue-800">保存</button>
+                                  <button type="button" onClick={() => setEditingOptionId(null)} className="text-xs text-gray-400">キャンセル</button>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="flex-1 text-xs">{opt.name}</span>
+                                  <span className="text-xs text-gray-500">¥{opt.price.toLocaleString()}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setEditingOptionId(opt.id); setOptionForm({ name: opt.name, price: opt.price }); }}
+                                    className="text-xs text-blue-500 hover:text-blue-700"
+                                  >編集</button>
+                                  <button type="button" onClick={() => deleteOption(t.id, opt.id)} className="text-xs text-red-400 hover:text-red-600">削除</button>
+                                </>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* 新規オプション追加 */}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={newOptionForms[t.id]?.name ?? ""}
+                          onChange={(e) => setNewOptionForms((prev) => ({ ...prev, [t.id]: { ...prev[t.id] ?? { name: "", price: "0" }, name: e.target.value } }))}
+                          placeholder="オプション名"
+                          className="border border-gray-300 rounded px-2 py-1 text-xs flex-1 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                          onKeyDown={(e) => e.key === "Enter" && addOption(t.id)}
+                        />
+                        <input
+                          type="number"
+                          value={newOptionForms[t.id]?.price ?? "0"}
+                          onChange={(e) => setNewOptionForms((prev) => ({ ...prev, [t.id]: { ...prev[t.id] ?? { name: "", price: "0" }, price: e.target.value } }))}
+                          placeholder="価格"
+                          min={0}
+                          className="border border-gray-300 rounded px-2 py-1 text-xs w-24 focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => addOption(t.id)}
+                          className="text-xs bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700"
+                        >追加</button>
                       </div>
                     </div>
-                  ) : (
-                    <>
-                      <span className="flex-1 text-sm">{t.name}</span>
-                      <span className="text-xs text-gray-500">¥{t.unitPrice.toLocaleString()}/{t.unit}</span>
-                      <span className="text-xs text-gray-400">{t.priceType === "per_tooth" ? "本数×単価" : "一律"}</span>
-                      <button type="button" onClick={() => { setEditingId(t.id); setForm({ name: t.name, categoryId: t.categoryId, priceType: t.priceType, unitPrice: t.unitPrice, unit: t.unit }); }} className="text-xs text-blue-500 hover:text-blue-700">編集</button>
-                      <button type="button" onClick={() => toggleActive(t)} className={`text-xs ${t.isActive ? "text-orange-400 hover:text-orange-600" : "text-green-500 hover:text-green-700"}`}>
-                        {t.isActive ? "無効化" : "有効化"}
-                      </button>
-                      <button type="button" onClick={() => deleteTreatment(t.id)} className="text-xs text-red-400 hover:text-red-600">削除</button>
-                    </>
                   )}
                 </div>
               ))}
