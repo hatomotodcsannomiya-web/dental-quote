@@ -273,7 +273,7 @@ function SortableTreatmentRow(props: SortableRowProps) {
         {editingId === t.id ? (
           <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-2">
             <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="border rounded px-2 py-1 text-xs col-span-2" />
-            <input type="number" value={form.unitPrice} onChange={(e) => setForm({ ...form, unitPrice: Number(e.target.value) })} className="border rounded px-2 py-1 text-xs" />
+            <input type="number" value={form.unitPrice} onChange={(e) => setForm({ ...form, unitPrice: Number(e.target.value) })} onFocus={(e) => e.target.select()} className="border rounded px-2 py-1 text-xs" />
             <input type="text" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="border rounded px-2 py-1 text-xs" />
             <div className="col-span-2 flex gap-2">
               <button type="button" onClick={() => updateTreatment(t.id)} className="text-xs text-blue-600 hover:text-blue-800">保存</button>
@@ -324,6 +324,7 @@ function SortableTreatmentRow(props: SortableRowProps) {
                         type="number"
                         value={optionForm.price}
                         onChange={(e) => setOptionForm({ ...optionForm, price: Number(e.target.value) })}
+                        onFocus={(e) => e.target.select()}
                         className="border rounded px-2 py-0.5 text-xs w-24 focus:outline-none"
                         min={0}
                       />
@@ -360,6 +361,7 @@ function SortableTreatmentRow(props: SortableRowProps) {
               type="number"
               value={newOptionForms[t.id]?.price ?? "0"}
               onChange={(e) => setNewOptionForms((prev) => ({ ...prev, [t.id]: { ...prev[t.id] ?? { name: "", price: "0" }, price: e.target.value } }))}
+              onFocus={(e) => e.target.select()}
               placeholder="価格"
               min={0}
               className="border border-gray-300 rounded px-2 py-1 text-xs w-24 focus:outline-none"
@@ -536,6 +538,7 @@ function TreatmentsTab({ categories, onReload }: { categories: CategoryWithTreat
               type="number"
               value={newForm.unitPrice}
               onChange={(e) => setNewForm({ ...newForm, unitPrice: Number(e.target.value) })}
+              onFocus={(e) => e.target.select()}
               min={0}
               className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full focus:outline-none"
             />
