@@ -22,9 +22,9 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { name, categoryId, priceType, unitPrice, unit, sortOrder } = body;
+  const { name, categoryId, unitPrice, unit, sortOrder } = body;
   const treatment = await prisma.treatment.create({
-    data: { name, categoryId, priceType, unitPrice, unit, sortOrder },
+    data: { name, categoryId, unitPrice, unit, sortOrder },
   });
   return Response.json(treatment);
 }

@@ -11,7 +11,6 @@ export interface TreatmentItem {
   id: number;
   name: string;
   categoryId: number;
-  priceType: string;
   unitPrice: number;
   unit: string;
   isActive: boolean;

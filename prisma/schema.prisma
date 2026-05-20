@@ -20,7 +20,6 @@ model Treatment {
   name       String
   categoryId Int
   category   Category          @relation(fields: [categoryId], references: [id])
-  priceType  String            @default("per_tooth")
   unitPrice  Int
   unit       String            @default("本")
   isActive   Boolean           @default(true)

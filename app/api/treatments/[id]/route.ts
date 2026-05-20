@@ -4,10 +4,10 @@ import { NextRequest } from "next/server";
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = await req.json();
-  const { name, categoryId, priceType, unitPrice, unit, isActive, sortOrder } = body;
+  const { name, categoryId, unitPrice, unit, isActive, sortOrder } = body;
   const treatment = await prisma.treatment.update({
     where: { id: Number(id) },
-    data: { name, categoryId, priceType, unitPrice, unit, isActive, sortOrder },
+    data: { name, categoryId, unitPrice, unit, isActive, sortOrder },
   });
   return Response.json(treatment);
 }

@@ -221,9 +221,9 @@ function GripIcon() {
 interface SortableRowProps {
   t: TreatmentItem;
   editingId: number | null;
-  form: { name: string; categoryId: number; priceType: string; unitPrice: number; unit: string };
+  form: { name: string; categoryId: number; unitPrice: number; unit: string };
   setEditingId: (id: number | null) => void;
-  setForm: (f: { name: string; categoryId: number; priceType: string; unitPrice: number; unit: string }) => void;
+  setForm: (f: { name: string; categoryId: number; unitPrice: number; unit: string }) => void;
   updateTreatment: (id: number) => void;
   toggleActive: (t: TreatmentItem) => void;
   deleteTreatment: (id: number) => void;
@@ -282,7 +282,6 @@ function SortableTreatmentRow(props: SortableRowProps) {
           <>
             <span className="flex-1 text-sm">{t.name}</span>
             <span className="text-xs text-gray-500">¥{t.unitPrice.toLocaleString()}/{t.unit}</span>
-            <span className="text-xs text-gray-400">{t.priceType === "per_tooth" ? "本数×単価" : "一律"}</span>
             <button
               type="button"
               onClick={() => toggleOptions(t.id)}
@@ -290,7 +289,7 @@ function SortableTreatmentRow(props: SortableRowProps) {
             >
               オプション {t.options.length > 0 ? `(${t.options.length})` : ""}
             </button>
-            <button type="button" onClick={() => { setEditingId(t.id); setForm({ name: t.name, categoryId: t.categoryId, priceType: t.priceType, unitPrice: t.unitPrice, unit: t.unit }); }} className="text-xs text-blue-500 hover:text-blue-700">編集</button>
+            <button type="button" onClick={() => { setEditingId(t.id); setForm({ name: t.name, categoryId: t.categoryId, unitPrice: t.unitPrice, unit: t.unit }); }} className="text-xs text-blue-500 hover:text-blue-700">編集</button>
             <button type="button" onClick={() => toggleActive(t)} className={`text-xs ${t.isActive ? "text-orange-400 hover:text-orange-600" : "text-green-500 hover:text-green-700"}`}>
               {t.isActive ? "無効化" : "有効化"}
             </button>
@@ -378,8 +377,8 @@ function SortableTreatmentRow(props: SortableRowProps) {
 function TreatmentsTab({ categories, onReload }: { categories: CategoryWithTreatments[]; onReload: () => void }) {
   const [localCategories, setLocalCategories] = useState<CategoryWithTreatments[]>(categories);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState({ name: "", categoryId: 0, priceType: "per_tooth", unitPrice: 0, unit: "本" });
-  const [newForm, setNewForm] = useState({ name: "", categoryId: categories[0]?.id ?? 0, priceType: "per_tooth", unitPrice: 0, unit: "本" });
+  const [form, setForm] = useState({ name: "", categoryId: 0, unitPrice: 0, unit: "本" });
+  const [newForm, setNewForm] = useState({ name: "", categoryId: categories[0]?.id ?? 0, unitPrice: 0, unit: "本" });
 
   const [expandedOptionsId, setExpandedOptionsId] = useState<number | null>(null);
   const [loadedOptions, setLoadedOptions] = useState<Record<number, TreatmentOption[]>>({});
@@ -464,9 +463,9 @@ function TreatmentsTab({ categories, onReload }: { categories: CategoryWithTreat
     await fetch("/api/treatments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...newForm, sortOrder: cat?.treatments.length ?? 0 }),
+      body: JSON.stringify({ name: newForm.name, categoryId: newForm.categoryId, unitPrice: newForm.unitPrice, unit: newForm.unit, sortOrder: cat?.treatments.length ?? 0 }),
     });
-    setNewForm({ name: "", categoryId: newForm.categoryId, priceType: "per_tooth", unitPrice: 0, unit: "本" });
+    setNewForm({ name: "", categoryId: newForm.categoryId, unitPrice: 0, unit: "本" });
     onReload();
   }
 
@@ -527,17 +526,6 @@ function TreatmentsTab({ categories, onReload }: { categories: CategoryWithTreat
             >
               <option value="">選択...</option>
               {localCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">価格タイプ</label>
-            <select
-              value={newForm.priceType}
-              onChange={(e) => setNewForm({ ...newForm, priceType: e.target.value })}
-              className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full focus:outline-none"
-            >
-              <option value="per_tooth">本数×単価</option>
-              <option value="flat">一律価格</option>
             </select>
           </div>
           <div>
