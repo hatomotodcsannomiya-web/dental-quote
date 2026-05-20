@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -27,6 +27,7 @@ export default function AdminPage() {
   const [tab, setTab] = useState<AdminTab>("treatments");
   const [categories, setCategories] = useState<CategoryWithTreatments[]>([]);
   const [loading, setLoading] = useState(false);
+  const dataLoadedRef = useRef(false);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -45,11 +46,12 @@ export default function AdminPage() {
   }
 
   async function loadData() {
-    setLoading(true);
+    if (!dataLoadedRef.current) setLoading(true);
     const res = await fetch("/api/treatments");
     const data = await res.json();
     setCategories(data);
     setLoading(false);
+    dataLoadedRef.current = true;
   }
 
   if (!authed) {
