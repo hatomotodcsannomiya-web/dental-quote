@@ -12,9 +12,9 @@ export const WARRANTY_TABLE: WarrantyRow[] = [
   { category: "インレー・アンレー（詰め物）",    period: "2年間",  year1: "無償", year2: "無償",    year3: "対象外",  year4to5: "対象外",  year6plus: "対象外" },
   { category: "クラウン（被せ物）",              period: "3年間",  year1: "無償", year2: "30%負担", year3: "50%負担", year4to5: "対象外",  year6plus: "対象外" },
   { category: "ブリッジ",                        period: "3年間",  year1: "無償", year2: "30%負担", year3: "50%負担", year4to5: "対象外",  year6plus: "対象外" },
-  { category: "義歯（入れ歯）",                  period: "1年間",  year1: "無償", year2: "対象外",  year3: "対象外",  year4to5: "対象外",  year6plus: "対象外" },
   { category: "インプラント上部構造",            period: "5年間",  year1: "無償", year2: "30%負担", year3: "30%負担", year4to5: "50%負担", year6plus: "対象外" },
   { category: "インプラント体（フィクスチャー）", period: "10年間", year1: "無償", year2: "無償",    year3: "無償",    year4to5: "無償",    year6plus: "無償"   },
+  { category: "義歯（入れ歯）",                  period: "1年間",  year1: "無償", year2: "対象外",  year3: "対象外",  year4to5: "対象外",  year6plus: "対象外" },
 ];
 
 // 治療名のキーワードから保証カテゴリへのマッピング
