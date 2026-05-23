@@ -22,12 +22,13 @@ const s = StyleSheet.create({
   tblRow:  { flexDirection: "row", borderTopWidth: 0.5, borderTopColor: "#b0c4d8", minHeight: 22 },
   tblRowAlt: { flexDirection: "row", borderTopWidth: 0.5, borderTopColor: "#b0c4d8", minHeight: 22, backgroundColor: LIGHT_BLUE },
 
-  cType:   { width: "28%", padding: "3 6", justifyContent: "center" },
-  cPeriod: { width: "12%", padding: "3 6", textAlign: "center", justifyContent: "center", borderLeftWidth: 0.5, borderLeftColor: "#b0c4d8" },
-  cY1:     { width: "14%", padding: "3 6", textAlign: "center", justifyContent: "center", borderLeftWidth: 0.5, borderLeftColor: "#b0c4d8" },
-  cY2:     { width: "15%", padding: "3 6", textAlign: "center", justifyContent: "center", borderLeftWidth: 0.5, borderLeftColor: "#b0c4d8" },
-  cY3:     { width: "16%", padding: "3 6", textAlign: "center", justifyContent: "center", borderLeftWidth: 0.5, borderLeftColor: "#b0c4d8" },
-  cY6:     { width: "15%", padding: "3 6", textAlign: "center", justifyContent: "center", borderLeftWidth: 0.5, borderLeftColor: "#b0c4d8" },
+  cType:   { width: "25%", padding: "3 6", justifyContent: "center" },
+  cPeriod: { width: "10%", padding: "3 6", textAlign: "center", justifyContent: "center", borderLeftWidth: 0.5, borderLeftColor: "#b0c4d8" },
+  cY1:     { width: "13%", padding: "3 6", textAlign: "center", justifyContent: "center", borderLeftWidth: 0.5, borderLeftColor: "#b0c4d8" },
+  cY2:     { width: "13%", padding: "3 6", textAlign: "center", justifyContent: "center", borderLeftWidth: 0.5, borderLeftColor: "#b0c4d8" },
+  cY3:     { width: "13%", padding: "3 6", textAlign: "center", justifyContent: "center", borderLeftWidth: 0.5, borderLeftColor: "#b0c4d8" },
+  cY4to5:  { width: "13%", padding: "3 6", textAlign: "center", justifyContent: "center", borderLeftWidth: 0.5, borderLeftColor: "#b0c4d8" },
+  cY6:     { width: "13%", padding: "3 6", textAlign: "center", justifyContent: "center", borderLeftWidth: 0.5, borderLeftColor: "#b0c4d8" },
   hText:   { color: "white", fontWeight: "bold", fontSize: 8 },
   bold:    { fontWeight: "bold" },
   gray:    { color: "#aaa" },
@@ -105,8 +106,9 @@ export default function WarrantyPDFDoc({ patientName, patientCode, issuedDate, i
             <View style={s.cType}><Text style={s.hText}>補綴の種類</Text></View>
             <View style={s.cPeriod}><Text style={s.hText}>保証期間</Text></View>
             <View style={s.cY1}><Text style={s.hText}>1年目</Text></View>
-            <View style={s.cY2}><Text style={s.hText}>2〜3年目</Text></View>
-            <View style={s.cY3}><Text style={s.hText}>3〜5年目</Text></View>
+            <View style={s.cY2}><Text style={s.hText}>2年目</Text></View>
+            <View style={s.cY3}><Text style={s.hText}>3年目</Text></View>
+            <View style={s.cY4to5}><Text style={s.hText}>4〜5年目</Text></View>
             <View style={s.cY6}><Text style={s.hText}>6年目以降</Text></View>
           </View>
           {WARRANTY_TABLE.map((row, i) => {
@@ -118,8 +120,9 @@ export default function WarrantyPDFDoc({ patientName, patientCode, issuedDate, i
                 <View style={s.cType}><Text>{row.category}</Text></View>
                 <View style={s.cPeriod}><Text>{row.period}</Text></View>
                 <View style={s.cY1}>{cell(row.year1)}</View>
-                <View style={s.cY2}>{cell(row.year2to3)}</View>
-                <View style={s.cY3}>{cell(row.year3to5)}</View>
+                <View style={s.cY2}>{cell(row.year2)}</View>
+                <View style={s.cY3}>{cell(row.year3)}</View>
+                <View style={s.cY4to5}>{cell(row.year4to5)}</View>
                 <View style={s.cY6}>{cell(row.year6plus)}</View>
               </View>
             );
