@@ -48,6 +48,7 @@ export function filterWarrantyItems(
   const result: WarrantyItem[] = [];
   for (const item of items) {
     if (item.treatmentName.startsWith("└ ")) continue;
+    if (item.treatmentName.includes("仮歯")) continue;
     const cat = mapToWarrantyCategory(item.treatmentName);
     if (cat) result.push({ ...item, warrantyCategory: cat, treatmentDate: defaultDate });
   }
