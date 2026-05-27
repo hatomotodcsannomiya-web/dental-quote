@@ -2,8 +2,8 @@ export const runtime = "nodejs";
 
 import { renderToBuffer, Font } from "@react-pdf/renderer";
 import { createElement } from "react";
-import QuotePDFDoc from "@/components/QuotePDFDoc";
-import type { QuoteLineItem } from "@/lib/types";
+import LabOrderPDFDoc from "@/components/LabOrderPDFDoc";
+import type { LabOrderItem } from "@/components/LabOrderPDFDoc";
 import { NextRequest } from "next/server";
 import path from "path";
 import fs from "fs";
@@ -25,24 +25,51 @@ export async function POST(req: NextRequest) {
   try {
     ensureFont();
 
-    const { items, createdAt } = await req.json() as {
-      items: QuoteLineItem[];
+    const {
+      patientName,
+      patientCode,
+      laboratoryName,
+      doctorName,
+      orderDate,
+      dueDate,
+      note,
+      items,
+      createdAt,
+    } = await req.json() as {
+      patientName: string;
+      patientCode: string;
+      laboratoryName: string;
+      doctorName: string;
+      orderDate: string;
+      dueDate: string;
+      note: string;
+      items: LabOrderItem[];
       createdAt: string;
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const element = createElement(QuotePDFDoc as any, { items, createdAt });
+    const element = createElement(LabOrderPDFDoc as any, {
+      patientName,
+      patientCode,
+      laboratoryName,
+      doctorName,
+      orderDate,
+      dueDate,
+      note,
+      items,
+      createdAt,
+    });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const buffer: Buffer = await renderToBuffer(element as any);
 
     return new Response(buffer as unknown as BodyInit, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="mitsumori.pdf"`,
+        "Content-Disposition": `attachment; filename="gikoshijisho.pdf"`,
       },
     });
   } catch (e) {
-    console.error("PDF error:", e instanceof Error ? e.stack : e);
+    console.error("Lab PDF error:", e instanceof Error ? e.stack : e);
     return Response.json({ error: String(e) }, { status: 500 });
   }
 }

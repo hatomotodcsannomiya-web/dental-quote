@@ -42,6 +42,58 @@ interface SavedWarranty {
   createdAt: string;
 }
 
+interface LabLaboratory {
+  id: number;
+  name: string;
+  tel: string | null;
+  address: string | null;
+  isActive: boolean;
+}
+
+interface LabOrderItemForm {
+  toothLabel: string;
+  treatmentName: string;
+  material: string;
+  shade: string;
+  quantity: number;
+  itemNote: string;
+}
+
+interface SavedLabOrder {
+  id: number;
+  quoteId: number | null;
+  patientName: string;
+  patientCode: string;
+  doctorName: string;
+  orderDate: string;
+  dueDate: string;
+  note: string | null;
+  items: string;
+  laboratory: LabLaboratory | null;
+  createdAt: string;
+}
+
+const TECH_EXCLUDE_KEYWORDS = ["仮歯", "麻酔", "抜歯", "消毒", "レントゲン", "CT", "相談", "検査", "診断", "クリーニング", "ホワイトニング", "矯正装置", "インビザライン", "マウスピース", "シーラント"];
+
+function filterLabItems(items: QuoteItem[]): LabOrderItemForm[] {
+  return items
+    .filter((item) => {
+      const name = item.treatment.name;
+      if (name.startsWith("└ ")) return false;
+      if (name.includes("仮歯")) return false;
+      if (TECH_EXCLUDE_KEYWORDS.some((kw) => name.includes(kw))) return false;
+      return true;
+    })
+    .map((item) => ({
+      toothLabel: item.toothLabel,
+      treatmentName: item.treatment.name,
+      material: "",
+      shade: "",
+      quantity: item.quantity,
+      itemNote: "",
+    }));
+}
+
 export default function PatientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -75,6 +127,23 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
   const [warrantyDeleteConfirmId, setWarrantyDeleteConfirmId] = useState<number | null>(null);
   const [deletingWarrantyId, setDeletingWarrantyId] = useState<number | null>(null);
 
+  // 技工指示書
+  const [labOrders, setLabOrders] = useState<SavedLabOrder[]>([]);
+  const [labs, setLabs] = useState<LabLaboratory[]>([]);
+  const [labOrderForm, setLabOrderForm] = useState<{
+    quote: Quote | null;
+    laboratoryId: number | null;
+    doctorName: string;
+    orderDate: string;
+    dueDate: string;
+    note: string;
+    items: LabOrderItemForm[];
+  } | null>(null);
+  const [labOrderSubmitting, setLabOrderSubmitting] = useState(false);
+  const [labOrderPdfLoadingId, setLabOrderPdfLoadingId] = useState<number | null>(null);
+  const [labOrderDeleteConfirmId, setLabOrderDeleteConfirmId] = useState<number | null>(null);
+  const [deletingLabOrderId, setDeletingLabOrderId] = useState<number | null>(null);
+
   async function load() {
     const res = await fetch(`/api/patients/${id}`);
     if (!res.ok) { setNotFound(true); setLoading(false); return; }
@@ -89,7 +158,20 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     if (res.ok) setWarranties(await res.json());
   }
 
-  useEffect(() => { load(); loadWarranties(); }, [id]);
+  async function loadLabOrders() {
+    const res = await fetch(`/api/lab-orders?patientId=${id}`);
+    if (res.ok) setLabOrders(await res.json());
+  }
+
+  async function loadLabs() {
+    const res = await fetch("/api/labs");
+    if (res.ok) {
+      const all: LabLaboratory[] = await res.json();
+      setLabs(all.filter((l) => l.isActive));
+    }
+  }
+
+  useEffect(() => { load(); loadWarranties(); loadLabOrders(); loadLabs(); }, [id]);
 
   async function handleEditSave() {
     if (!editForm.name.trim()) return;
@@ -202,6 +284,143 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     }
   }
 
+  // 技工指示書: 見積もりから開く
+  function openLabOrderFromQuote(quote: Quote) {
+    const today = new Date().toISOString().slice(0, 10);
+    const items = filterLabItems(quote.items);
+    setLabOrderForm({
+      quote,
+      laboratoryId: null,
+      doctorName: "",
+      orderDate: today,
+      dueDate: "",
+      note: "",
+      items,
+    });
+  }
+
+  // 技工指示書: 独立作成
+  function openLabOrderNew() {
+    const today = new Date().toISOString().slice(0, 10);
+    setLabOrderForm({
+      quote: null,
+      laboratoryId: null,
+      doctorName: "",
+      orderDate: today,
+      dueDate: "",
+      note: "",
+      items: [{ toothLabel: "", treatmentName: "", material: "", shade: "", quantity: 1, itemNote: "" }],
+    });
+  }
+
+  function addLabOrderItem() {
+    setLabOrderForm((prev) => prev ? {
+      ...prev,
+      items: [...prev.items, { toothLabel: "", treatmentName: "", material: "", shade: "", quantity: 1, itemNote: "" }],
+    } : null);
+  }
+
+  function removeLabOrderItem(idx: number) {
+    setLabOrderForm((prev) => prev ? {
+      ...prev,
+      items: prev.items.filter((_, i) => i !== idx),
+    } : null);
+  }
+
+  function updateLabOrderItem(idx: number, field: keyof LabOrderItemForm, value: string | number) {
+    setLabOrderForm((prev) => prev ? {
+      ...prev,
+      items: prev.items.map((item, i) => i === idx ? { ...item, [field]: value } : item),
+    } : null);
+  }
+
+  async function submitLabOrder() {
+    if (!labOrderForm || !patient) return;
+    if (!labOrderForm.orderDate || !labOrderForm.dueDate) return;
+    setLabOrderSubmitting(true);
+    try {
+      const lab = labs.find((l) => l.id === labOrderForm.laboratoryId);
+      const createdAt = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
+
+      const saveRes = await fetch("/api/lab-orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientId: patient.id,
+          quoteId: labOrderForm.quote?.id ?? null,
+          laboratoryId: labOrderForm.laboratoryId,
+          patientName: patient.name,
+          patientCode: patient.code,
+          doctorName: labOrderForm.doctorName,
+          orderDate: labOrderForm.orderDate,
+          dueDate: labOrderForm.dueDate,
+          note: labOrderForm.note,
+          items: labOrderForm.items,
+        }),
+      });
+      const saved = await saveRes.json();
+
+      const pdfRes = await fetch("/api/lab-order-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientName: patient.name,
+          patientCode: patient.code,
+          laboratoryName: lab?.name ?? "",
+          doctorName: labOrderForm.doctorName,
+          orderDate: labOrderForm.orderDate,
+          dueDate: labOrderForm.dueDate,
+          note: labOrderForm.note,
+          items: labOrderForm.items,
+          createdAt,
+        }),
+      });
+      const blob = await pdfRes.blob();
+      const url = URL.createObjectURL(blob);
+      setPreviewPdf({ url, filename: `技工指示書_${patient.code}_${saved.id}.pdf` });
+      setLabOrderForm(null);
+      loadLabOrders();
+    } finally {
+      setLabOrderSubmitting(false);
+    }
+  }
+
+  async function viewLabOrderPDF(order: SavedLabOrder) {
+    setLabOrderPdfLoadingId(order.id);
+    try {
+      const items = JSON.parse(order.items) as LabOrderItemForm[];
+      const createdAt = new Date(order.createdAt).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
+      const res = await fetch("/api/lab-order-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientName: order.patientName,
+          patientCode: order.patientCode,
+          laboratoryName: order.laboratory?.name ?? "",
+          doctorName: order.doctorName,
+          orderDate: order.orderDate,
+          dueDate: order.dueDate,
+          note: order.note ?? "",
+          items,
+          createdAt,
+        }),
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      setPreviewPdf({ url, filename: `技工指示書_${order.patientCode}_${order.id}.pdf` });
+    } finally {
+      setLabOrderPdfLoadingId(null);
+    }
+  }
+
+  async function handleDeleteLabOrder(labOrderId: number) {
+    setDeletingLabOrderId(labOrderId);
+    await fetch(`/api/lab-orders/${labOrderId}`, { method: "DELETE" });
+    setDeletingLabOrderId(null);
+    setLabOrderDeleteConfirmId(null);
+    loadLabOrders();
+  }
+
   function closePreview() {
     if (previewPdf) {
       URL.revokeObjectURL(previewPdf.url);
@@ -287,8 +506,18 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
 
-        {/* 新規見積もりボタン */}
-        <div className="flex justify-end">
+        {/* アクションボタン */}
+        <div className="flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={openLabOrderNew}
+            className="bg-purple-600 text-white px-5 py-3 rounded-xl font-semibold text-sm hover:bg-purple-700 shadow flex items-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            技工指示書を作成
+          </button>
           <button
             type="button"
             onClick={() => router.push(`/quote/new?patientId=${patient.id}`)}
@@ -381,6 +610,13 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                         <div className="flex gap-2">
                           <button
                             type="button"
+                            onClick={() => openLabOrderFromQuote(quote)}
+                            className="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700"
+                          >
+                            技工指示書
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => openWarrantyForm(quote)}
                             className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700"
                           >
@@ -403,6 +639,51 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
             </div>
           )}
         </div>
+
+        {/* 技工指示書履歴 */}
+        <div>
+          <h2 className="text-sm font-semibold text-gray-700 mb-3">
+            技工指示書履歴
+            <span className="ml-2 text-gray-400 font-normal">{labOrders.length}件</span>
+          </h2>
+          {labOrders.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-400 text-sm">まだ技工指示書がありません</div>
+          ) : (
+            <div className="space-y-2">
+              {labOrders.map((order) => {
+                const items = JSON.parse(order.items) as LabOrderItemForm[];
+                return (
+                  <div key={order.id} className="bg-white rounded-xl shadow-sm px-5 py-3 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-700">
+                        {order.laboratory?.name ?? "技工所未指定"}
+                        <span className="ml-2 text-xs text-gray-400">納品: {order.dueDate}</span>
+                      </p>
+                      <p className="text-xs text-gray-400">{items.length}項目 · 発注: {order.orderDate}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => viewLabOrderPDF(order)}
+                      disabled={labOrderPdfLoadingId === order.id}
+                      className="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 disabled:opacity-50 shrink-0"
+                    >
+                      {labOrderPdfLoadingId === order.id ? "読込中..." : "プレビュー"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLabOrderDeleteConfirmId(order.id)}
+                      className="text-red-300 hover:text-red-500 text-sm font-bold shrink-0 px-1"
+                      title="この技工指示書を削除"
+                    >
+                      ×
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* 保証書履歴 */}
         <div>
           <h2 className="text-sm font-semibold text-gray-700 mb-3">
@@ -455,6 +736,171 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
       {/* PDFプレビュー */}
       {previewPdf && (
         <PDFPreviewModal url={previewPdf.url} filename={previewPdf.filename} onClose={closePreview} />
+      )}
+
+      {/* 技工指示書作成モーダル */}
+      {labOrderForm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-2xl w-full max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-gray-800">
+                技工指示書を作成
+                {labOrderForm.quote && <span className="ml-2 text-xs text-gray-400 font-normal">（見積 #{labOrderForm.quote.id} より）</span>}
+              </h2>
+              <button type="button" onClick={() => setLabOrderForm(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 space-y-4">
+              {/* 基本情報 */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">技工所</label>
+                  <select
+                    value={labOrderForm.laboratoryId ?? ""}
+                    onChange={(e) => setLabOrderForm((prev) => prev ? { ...prev, laboratoryId: e.target.value ? Number(e.target.value) : null } : null)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  >
+                    <option value="">技工所を選択...</option>
+                    {labs.map((lab) => <option key={lab.id} value={lab.id}>{lab.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">担当医名</label>
+                  <input
+                    type="text"
+                    value={labOrderForm.doctorName}
+                    onChange={(e) => setLabOrderForm((prev) => prev ? { ...prev, doctorName: e.target.value } : null)}
+                    placeholder="例：田中 太郎"
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">発注日 <span className="text-red-400">*</span></label>
+                  <input
+                    type="date"
+                    value={labOrderForm.orderDate}
+                    onChange={(e) => setLabOrderForm((prev) => prev ? { ...prev, orderDate: e.target.value } : null)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">納品希望日 <span className="text-red-400">*</span></label>
+                  <input
+                    type="date"
+                    value={labOrderForm.dueDate}
+                    onChange={(e) => setLabOrderForm((prev) => prev ? { ...prev, dueDate: e.target.value } : null)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  />
+                </div>
+              </div>
+
+              {/* 品目テーブル */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-gray-600">指示内容</p>
+                  <button
+                    type="button"
+                    onClick={addLabOrderItem}
+                    className="text-xs text-purple-600 hover:text-purple-800 border border-purple-200 px-2 py-0.5 rounded"
+                  >
+                    + 行を追加
+                  </button>
+                </div>
+
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  {/* ヘッダー */}
+                  <div className="grid text-xs font-medium text-gray-500 bg-gray-50 px-3 py-2 border-b border-gray-200" style={{ gridTemplateColumns: "1fr 1.5fr 1fr 0.7fr 0.4fr 0.3fr" }}>
+                    <span>部位</span>
+                    <span>処置名</span>
+                    <span>素材</span>
+                    <span>シェード</span>
+                    <span className="text-center">数量</span>
+                    <span></span>
+                  </div>
+                  {/* 行 */}
+                  {labOrderForm.items.map((item, i) => (
+                    <div key={i} className="grid gap-1 px-2 py-1.5 border-b border-gray-100 last:border-b-0 items-center" style={{ gridTemplateColumns: "1fr 1.5fr 1fr 0.7fr 0.4fr 0.3fr" }}>
+                      <input
+                        type="text"
+                        value={item.toothLabel}
+                        onChange={(e) => updateLabOrderItem(i, "toothLabel", e.target.value)}
+                        placeholder="例：上6"
+                        className="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-300"
+                      />
+                      <input
+                        type="text"
+                        value={item.treatmentName}
+                        onChange={(e) => updateLabOrderItem(i, "treatmentName", e.target.value)}
+                        placeholder="例：ジルコニアクラウン"
+                        className="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-300"
+                      />
+                      <input
+                        type="text"
+                        value={item.material}
+                        onChange={(e) => updateLabOrderItem(i, "material", e.target.value)}
+                        placeholder="例：ジルコニア"
+                        className="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-300"
+                      />
+                      <input
+                        type="text"
+                        value={item.shade}
+                        onChange={(e) => updateLabOrderItem(i, "shade", e.target.value)}
+                        placeholder="例：A2"
+                        className="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-300"
+                      />
+                      <input
+                        type="number"
+                        value={item.quantity}
+                        min={1}
+                        onChange={(e) => updateLabOrderItem(i, "quantity", Number(e.target.value))}
+                        className="border border-gray-200 rounded px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-purple-300"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeLabOrderItem(i)}
+                        disabled={labOrderForm.items.length <= 1}
+                        className="text-red-300 hover:text-red-500 text-base font-bold disabled:opacity-30 text-center"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 特記事項 */}
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">特記事項</label>
+                <textarea
+                  value={labOrderForm.note}
+                  onChange={(e) => setLabOrderForm((prev) => prev ? { ...prev, note: e.target.value } : null)}
+                  rows={3}
+                  placeholder="例：色調は隣在歯に合わせてください"
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-4">
+              <button
+                type="button"
+                onClick={() => setLabOrderForm(null)}
+                disabled={labOrderSubmitting}
+                className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={submitLabOrder}
+                disabled={labOrderSubmitting || !labOrderForm.orderDate || !labOrderForm.dueDate}
+                className="flex-1 bg-purple-600 text-white py-2 rounded-xl text-sm font-semibold hover:bg-purple-700 disabled:opacity-50"
+              >
+                {labOrderSubmitting ? "保存中..." : "保存してPDF生成"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 保証書セット日編集モーダル */}
@@ -514,6 +960,21 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
             <div className="flex gap-3">
               <button type="button" onClick={() => setWarrantyDeleteConfirmId(null)} disabled={!!deletingWarrantyId} className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50">キャンセル</button>
               <button type="button" onClick={() => handleDeleteWarranty(warrantyDeleteConfirmId)} disabled={!!deletingWarrantyId} className="flex-1 bg-red-500 text-white py-2 rounded-xl text-sm font-semibold hover:bg-red-600 disabled:opacity-50">{deletingWarrantyId ? "削除中..." : "削除する"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 技工指示書削除確認 */}
+      {labOrderDeleteConfirmId && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
+            <h2 className="text-base font-bold text-gray-800 mb-2">技工指示書を削除しますか？</h2>
+            <p className="text-sm text-gray-500 mb-1">この技工指示書を削除します。</p>
+            <p className="text-xs text-gray-400 mb-5">この操作は取り消せません。</p>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setLabOrderDeleteConfirmId(null)} disabled={!!deletingLabOrderId} className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50">キャンセル</button>
+              <button type="button" onClick={() => handleDeleteLabOrder(labOrderDeleteConfirmId)} disabled={!!deletingLabOrderId} className="flex-1 bg-red-500 text-white py-2 rounded-xl text-sm font-semibold hover:bg-red-600 disabled:opacity-50">{deletingLabOrderId ? "削除中..." : "削除する"}</button>
             </div>
           </div>
         </div>

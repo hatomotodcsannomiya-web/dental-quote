@@ -18,7 +18,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import type { CategoryWithTreatments, TreatmentItem, TreatmentOption } from "@/lib/types";
 
-type AdminTab = "categories" | "treatments" | "password";
+type AdminTab = "categories" | "treatments" | "labs" | "password";
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
@@ -100,6 +100,7 @@ export default function AdminPage() {
           {([
             { key: "treatments", label: "治療メニュー" },
             { key: "categories", label: "カテゴリ管理" },
+            { key: "labs", label: "技工所管理" },
             { key: "password", label: "パスワード変更" },
           ] as const).map(({ key, label }) => (
             <button
@@ -119,6 +120,7 @@ export default function AdminPage() {
           <>
             {tab === "categories" && <CategoriesTab categories={categories} onReload={loadData} />}
             {tab === "treatments" && <TreatmentsTab categories={categories} onReload={loadData} />}
+            {tab === "labs" && <LabsTab />}
             {tab === "password" && <PasswordTab />}
           </>
         )}
@@ -585,6 +587,186 @@ function TreatmentsTab({ categories, onReload }: { categories: CategoryWithTreat
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+interface LabLaboratory {
+  id: number;
+  name: string;
+  tel: string | null;
+  address: string | null;
+  isActive: boolean;
+}
+
+function LabsTab() {
+  const [labs, setLabs] = useState<LabLaboratory[]>([]);
+  const [newForm, setNewForm] = useState({ name: "", tel: "", address: "" });
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", tel: "", address: "" });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { loadLabs(); }, []);
+
+  async function loadLabs() {
+    const res = await fetch("/api/labs");
+    setLabs(await res.json());
+  }
+
+  async function addLab() {
+    if (!newForm.name.trim()) return;
+    setSaving(true);
+    await fetch("/api/labs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newForm),
+    });
+    setNewForm({ name: "", tel: "", address: "" });
+    await loadLabs();
+    setSaving(false);
+  }
+
+  async function updateLab(id: number) {
+    await fetch(`/api/labs/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(editForm),
+    });
+    setEditingId(null);
+    loadLabs();
+  }
+
+  async function deleteLab(id: number) {
+    if (!confirm("この技工所を削除しますか？")) return;
+    await fetch(`/api/labs/${id}`, { method: "DELETE" });
+    loadLabs();
+  }
+
+  async function toggleActive(lab: LabLaboratory) {
+    await fetch(`/api/labs/${lab.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive: !lab.isActive }),
+    });
+    loadLabs();
+  }
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-5">
+      <h2 className="text-base font-semibold text-gray-800 mb-4">技工所管理</h2>
+
+      {/* 新規追加フォーム */}
+      <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
+        <h3 className="text-sm font-semibold text-blue-800 mb-3">新規追加</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">技工所名 <span className="text-red-400">*</span></label>
+            <input
+              type="text"
+              value={newForm.name}
+              onChange={(e) => setNewForm({ ...newForm, name: e.target.value })}
+              placeholder="例：○○歯科技工所"
+              className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
+              onKeyDown={(e) => e.key === "Enter" && addLab()}
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">電話番号</label>
+            <input
+              type="text"
+              value={newForm.tel}
+              onChange={(e) => setNewForm({ ...newForm, tel: e.target.value })}
+              placeholder="例：078-000-0000"
+              className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">住所</label>
+            <input
+              type="text"
+              value={newForm.address}
+              onChange={(e) => setNewForm({ ...newForm, address: e.target.value })}
+              placeholder="例：神戸市中央区..."
+              className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
+            />
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={addLab}
+          disabled={saving || !newForm.name.trim()}
+          className="mt-3 bg-blue-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
+        >
+          追加する
+        </button>
+      </div>
+
+      {/* 一覧 */}
+      <div className="space-y-2">
+        {labs.length === 0 && <p className="text-sm text-gray-400">技工所が登録されていません</p>}
+        {labs.map((lab) => (
+          <div key={lab.id} className={`rounded-lg border px-4 py-3 ${!lab.isActive ? "opacity-50 bg-gray-50 border-gray-100" : "bg-white border-gray-200"}`}>
+            {editingId === lab.id ? (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  className="border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  autoFocus
+                />
+                <input
+                  type="text"
+                  value={editForm.tel}
+                  onChange={(e) => setEditForm({ ...editForm, tel: e.target.value })}
+                  placeholder="電話番号"
+                  className="border rounded px-2 py-1 text-sm focus:outline-none"
+                />
+                <input
+                  type="text"
+                  value={editForm.address}
+                  onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                  placeholder="住所"
+                  className="border rounded px-2 py-1 text-sm focus:outline-none"
+                />
+                <div className="col-span-3 flex gap-2 mt-1">
+                  <button type="button" onClick={() => updateLab(lab.id)} className="text-xs text-blue-600 hover:text-blue-800">保存</button>
+                  <button type="button" onClick={() => setEditingId(null)} className="text-xs text-gray-400 hover:text-gray-600">キャンセル</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-800">{lab.name}</p>
+                  {(lab.tel || lab.address) && (
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {lab.tel && <span className="mr-3">📞 {lab.tel}</span>}
+                      {lab.address && <span>📍 {lab.address}</span>}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setEditingId(lab.id); setEditForm({ name: lab.name, tel: lab.tel ?? "", address: lab.address ?? "" }); }}
+                  className="text-xs text-blue-500 hover:text-blue-700"
+                >編集</button>
+                <button
+                  type="button"
+                  onClick={() => toggleActive(lab)}
+                  className={`text-xs ${lab.isActive ? "text-orange-400 hover:text-orange-600" : "text-green-500 hover:text-green-700"}`}
+                >
+                  {lab.isActive ? "無効化" : "有効化"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deleteLab(lab.id)}
+                  className="text-xs text-red-400 hover:text-red-600"
+                >削除</button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

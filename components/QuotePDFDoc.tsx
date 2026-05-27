@@ -92,7 +92,7 @@ export default function QuotePDFDoc({ items, createdAt }: Props) {
     return acc;
   }, {} as Record<string, QuoteLineItem[]>);
 
-  const subtotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+  const subtotal = items.reduce((sum, item) => sum + Number(item.unitPrice) * Number(item.quantity), 0);
   const tax = Math.floor(subtotal * TAX_RATE);
   const total = subtotal + tax;
 

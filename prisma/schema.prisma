@@ -50,6 +50,37 @@ model Patient {
   updatedAt  DateTime   @updatedAt
   quotes     Quote[]
   warranties Warranty[]
+  labOrders  LabOrder[]
+}
+
+model LabLaboratory {
+  id        Int        @id @default(autoincrement())
+  name      String
+  tel       String?
+  address   String?
+  isActive  Boolean    @default(true)
+  sortOrder Int        @default(0)
+  orders    LabOrder[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model LabOrder {
+  id           Int            @id @default(autoincrement())
+  patientId    Int?
+  patient      Patient?       @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  quoteId      Int?
+  quote        Quote?         @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  laboratoryId Int?
+  laboratory   LabLaboratory? @relation(fields: [laboratoryId], references: [id], onDelete: SetNull)
+  patientName  String
+  patientCode  String
+  doctorName   String         @default("")
+  orderDate    String
+  dueDate      String
+  note         String?
+  items        String
+  createdAt    DateTime       @default(now())
 }
 
 model Quote {
@@ -64,6 +95,7 @@ model Quote {
   total        Int         @default(0)
   items        QuoteItem[]
   warranties   Warranty[]
+  labOrders    LabOrder[]
   createdAt    DateTime    @default(now())
 }
 
