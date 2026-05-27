@@ -45,9 +45,24 @@ interface SavedWarranty {
 interface LabLaboratory {
   id: number;
   name: string;
-  tel: string | null;
-  address: string | null;
   isActive: boolean;
+}
+
+interface Doctor {
+  id: number;
+  name: string;
+  isActive: boolean;
+}
+
+interface LabMaterial {
+  id: number;
+  name: string;
+  isActive: boolean;
+}
+
+interface TreatmentMaster {
+  id: number;
+  name: string;
 }
 
 interface LabOrderItemForm {
@@ -69,7 +84,7 @@ interface SavedLabOrder {
   dueDate: string;
   note: string | null;
   items: string;
-  laboratory: LabLaboratory | null;
+  laboratory: { name: string } | null;
   createdAt: string;
 }
 
@@ -80,7 +95,6 @@ function filterLabItems(items: QuoteItem[]): LabOrderItemForm[] {
     .filter((item) => {
       const name = item.treatment.name;
       if (name.startsWith("└ ")) return false;
-      if (name.includes("仮歯")) return false;
       if (TECH_EXCLUDE_KEYWORDS.some((kw) => name.includes(kw))) return false;
       return true;
     })
@@ -107,21 +121,14 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // 見積削除
   const [quoteDeleteConfirmId, setQuoteDeleteConfirmId] = useState<number | null>(null);
   const [deletingQuoteId, setDeletingQuoteId] = useState<number | null>(null);
-
-  // PDF生成ローディング
   const [pdfLoadingId, setPdfLoadingId] = useState<number | null>(null);
 
-  // 保証書日付編集
   const [warrantyEditData, setWarrantyEditData] = useState<{ quote: Quote; items: WarrantyItem[] } | null>(null);
   const [warrantySubmitting, setWarrantySubmitting] = useState(false);
-
-  // プレビュー
   const [previewPdf, setPreviewPdf] = useState<{ url: string; filename: string } | null>(null);
 
-  // 保証書履歴
   const [warranties, setWarranties] = useState<SavedWarranty[]>([]);
   const [warrantyPdfLoadingId, setWarrantyPdfLoadingId] = useState<number | null>(null);
   const [warrantyDeleteConfirmId, setWarrantyDeleteConfirmId] = useState<number | null>(null);
@@ -130,10 +137,13 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
   // 技工指示書
   const [labOrders, setLabOrders] = useState<SavedLabOrder[]>([]);
   const [labs, setLabs] = useState<LabLaboratory[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [materials, setMaterials] = useState<LabMaterial[]>([]);
+  const [treatments, setTreatments] = useState<TreatmentMaster[]>([]);
   const [labOrderForm, setLabOrderForm] = useState<{
     quote: Quote | null;
     laboratoryId: number | null;
-    doctorName: string;
+    doctorId: number | null;
     orderDate: string;
     dueDate: string;
     note: string;
@@ -163,15 +173,24 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     if (res.ok) setLabOrders(await res.json());
   }
 
-  async function loadLabs() {
-    const res = await fetch("/api/labs");
-    if (res.ok) {
-      const all: LabLaboratory[] = await res.json();
-      setLabs(all.filter((l) => l.isActive));
+  async function loadMasters() {
+    const [labsRes, doctorsRes, matsRes, treatsRes] = await Promise.all([
+      fetch("/api/labs"),
+      fetch("/api/doctors"),
+      fetch("/api/lab-materials"),
+      fetch("/api/treatments"),
+    ]);
+    if (labsRes.ok) { const all: LabLaboratory[] = await labsRes.json(); setLabs(all.filter((l) => l.isActive)); }
+    if (doctorsRes.ok) { const all: Doctor[] = await doctorsRes.json(); setDoctors(all.filter((d) => d.isActive)); }
+    if (matsRes.ok) { const all: LabMaterial[] = await matsRes.json(); setMaterials(all.filter((m) => m.isActive)); }
+    if (treatsRes.ok) {
+      const cats: { treatments: TreatmentMaster[] }[] = await treatsRes.json();
+      const flat = cats.flatMap((c) => c.treatments);
+      setTreatments(flat.filter((t: TreatmentMaster & { isActive?: boolean }) => t.isActive !== false));
     }
   }
 
-  useEffect(() => { load(); loadWarranties(); loadLabOrders(); loadLabs(); }, [id]);
+  useEffect(() => { load(); loadWarranties(); loadLabOrders(); loadMasters(); }, [id]);
 
   async function handleEditSave() {
     if (!editForm.name.trim()) return;
@@ -284,28 +303,27 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     }
   }
 
-  // 技工指示書: 見積もりから開く
+  // 技工指示書フォームを開く（見積もりから）
   function openLabOrderFromQuote(quote: Quote) {
     const today = new Date().toISOString().slice(0, 10);
-    const items = filterLabItems(quote.items);
     setLabOrderForm({
       quote,
       laboratoryId: null,
-      doctorName: "",
+      doctorId: null,
       orderDate: today,
       dueDate: "",
       note: "",
-      items,
+      items: filterLabItems(quote.items),
     });
   }
 
-  // 技工指示書: 独立作成
+  // 技工指示書フォームを開く（独立作成）
   function openLabOrderNew() {
     const today = new Date().toISOString().slice(0, 10);
     setLabOrderForm({
       quote: null,
       laboratoryId: null,
-      doctorName: "",
+      doctorId: null,
       orderDate: today,
       dueDate: "",
       note: "",
@@ -340,6 +358,8 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     setLabOrderSubmitting(true);
     try {
       const lab = labs.find((l) => l.id === labOrderForm.laboratoryId);
+      const doctor = doctors.find((d) => d.id === labOrderForm.doctorId);
+      const doctorName = doctor?.name ?? "";
       const createdAt = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
 
       const saveRes = await fetch("/api/lab-orders", {
@@ -351,7 +371,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
           laboratoryId: labOrderForm.laboratoryId,
           patientName: patient.name,
           patientCode: patient.code,
-          doctorName: labOrderForm.doctorName,
+          doctorName,
           orderDate: labOrderForm.orderDate,
           dueDate: labOrderForm.dueDate,
           note: labOrderForm.note,
@@ -367,7 +387,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
           patientName: patient.name,
           patientCode: patient.code,
           laboratoryName: lab?.name ?? "",
-          doctorName: labOrderForm.doctorName,
+          doctorName,
           orderDate: labOrderForm.orderDate,
           dueDate: labOrderForm.dueDate,
           note: labOrderForm.note,
@@ -543,40 +563,21 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
             <div className="space-y-3">
               {patient.quotes.map((quote) => (
                 <div key={quote.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
-                  {/* ヘッダー行 */}
                   <div className="flex items-center gap-3 px-5 py-4">
-                    <div
-                      className="flex-1 min-w-0 cursor-pointer"
-                      onClick={() => setExpandedQuoteId(expandedQuoteId === quote.id ? null : quote.id)}
-                    >
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedQuoteId(expandedQuoteId === quote.id ? null : quote.id)}>
                       <p className="text-xs text-gray-400">{formatDate(quote.createdAt)}</p>
                       {quote.memo && <p className="text-xs text-gray-500 mt-0.5">{quote.memo}</p>}
                       <p className="text-xs text-gray-400 mt-0.5">{quote.items.length}項目</p>
                     </div>
-                    <div
-                      className="text-right shrink-0 cursor-pointer"
-                      onClick={() => setExpandedQuoteId(expandedQuoteId === quote.id ? null : quote.id)}
-                    >
+                    <div className="text-right shrink-0 cursor-pointer" onClick={() => setExpandedQuoteId(expandedQuoteId === quote.id ? null : quote.id)}>
                       <p className="text-sm font-bold text-blue-700">¥{quote.total.toLocaleString()}<span className="text-xs font-normal text-gray-400">（税込）</span></p>
                     </div>
-                    {/* 削除ボタン */}
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); setQuoteDeleteConfirmId(quote.id); }}
-                      className="text-red-300 hover:text-red-500 text-sm font-bold shrink-0 px-1"
-                      title="この見積を削除"
-                    >
-                      ×
-                    </button>
-                    <span
-                      className="text-gray-400 text-sm cursor-pointer"
-                      onClick={() => setExpandedQuoteId(expandedQuoteId === quote.id ? null : quote.id)}
-                    >
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setQuoteDeleteConfirmId(quote.id); }} className="text-red-300 hover:text-red-500 text-sm font-bold shrink-0 px-1" title="この見積を削除">×</button>
+                    <span className="text-gray-400 text-sm cursor-pointer" onClick={() => setExpandedQuoteId(expandedQuoteId === quote.id ? null : quote.id)}>
                       {expandedQuoteId === quote.id ? "▲" : "▼"}
                     </span>
                   </div>
 
-                  {/* 展開内容 */}
                   {expandedQuoteId === quote.id && (
                     <div className="border-t border-gray-100 px-5 py-4">
                       <table className="w-full text-xs mb-3">
@@ -608,26 +609,9 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                           <span className="font-semibold">合計 ¥{quote.total.toLocaleString()}</span>
                         </div>
                         <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openLabOrderFromQuote(quote)}
-                            className="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700"
-                          >
-                            技工指示書
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openWarrantyForm(quote)}
-                            className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700"
-                          >
-                            保証書
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openPreviewPDF(quote)}
-                            disabled={pdfLoadingId === quote.id}
-                            className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                          >
+                          <button type="button" onClick={() => openLabOrderFromQuote(quote)} className="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700">技工指示書</button>
+                          <button type="button" onClick={() => openWarrantyForm(quote)} className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700">保証書</button>
+                          <button type="button" onClick={() => openPreviewPDF(quote)} disabled={pdfLoadingId === quote.id} className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50">
                             {pdfLoadingId === quote.id ? "生成中..." : "見積PDF"}
                           </button>
                         </div>
@@ -659,24 +643,12 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                         {order.laboratory?.name ?? "技工所未指定"}
                         <span className="ml-2 text-xs text-gray-400">納品: {order.dueDate}</span>
                       </p>
-                      <p className="text-xs text-gray-400">{items.length}項目 · 発注: {order.orderDate}</p>
+                      <p className="text-xs text-gray-400">{items.length}項目 · 発注: {order.orderDate}{order.doctorName ? ` · ${order.doctorName}` : ""}</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => viewLabOrderPDF(order)}
-                      disabled={labOrderPdfLoadingId === order.id}
-                      className="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 disabled:opacity-50 shrink-0"
-                    >
+                    <button type="button" onClick={() => viewLabOrderPDF(order)} disabled={labOrderPdfLoadingId === order.id} className="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 disabled:opacity-50 shrink-0">
                       {labOrderPdfLoadingId === order.id ? "読込中..." : "プレビュー"}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setLabOrderDeleteConfirmId(order.id)}
-                      className="text-red-300 hover:text-red-500 text-sm font-bold shrink-0 px-1"
-                      title="この技工指示書を削除"
-                    >
-                      ×
-                    </button>
+                    <button type="button" onClick={() => setLabOrderDeleteConfirmId(order.id)} className="text-red-300 hover:text-red-500 text-sm font-bold shrink-0 px-1" title="この技工指示書を削除">×</button>
                   </div>
                 );
               })}
@@ -702,29 +674,13 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                       <p className="text-sm font-medium text-gray-700">{w.issuedDate}</p>
                       <p className="text-xs text-gray-400">{parsedItems.length}項目</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => downloadSavedWarrantyPDF(w)}
-                      disabled={warrantyPdfLoadingId === w.id}
-                      className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 disabled:opacity-50 shrink-0"
-                    >
+                    <button type="button" onClick={() => downloadSavedWarrantyPDF(w)} disabled={warrantyPdfLoadingId === w.id} className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 disabled:opacity-50 shrink-0">
                       {warrantyPdfLoadingId === w.id ? "読込中..." : "プレビュー"}
                     </button>
-                    <a
-                      href={`/api/warranties/${w.id}/pdf`}
-                      download={`補綴保証書_${w.patientCode}_${w.id}.pdf`}
-                      className="text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-200 shrink-0"
-                    >
+                    <a href={`/api/warranties/${w.id}/pdf`} download={`補綴保証書_${w.patientCode}_${w.id}.pdf`} className="text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-200 shrink-0">
                       ダウンロード
                     </a>
-                    <button
-                      type="button"
-                      onClick={() => setWarrantyDeleteConfirmId(w.id)}
-                      className="text-red-300 hover:text-red-500 text-sm font-bold shrink-0 px-1"
-                      title="この保証書を削除"
-                    >
-                      ×
-                    </button>
+                    <button type="button" onClick={() => setWarrantyDeleteConfirmId(w.id)} className="text-red-300 hover:text-red-500 text-sm font-bold shrink-0 px-1" title="この保証書を削除">×</button>
                   </div>
                 );
               })}
@@ -734,15 +690,14 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       {/* PDFプレビュー */}
-      {previewPdf && (
-        <PDFPreviewModal url={previewPdf.url} filename={previewPdf.filename} onClose={closePreview} />
-      )}
+      {previewPdf && <PDFPreviewModal url={previewPdf.url} filename={previewPdf.filename} onClose={closePreview} />}
 
-      {/* 技工指示書作成モーダル */}
+      {/* ===== 技工指示書作成モーダル ===== */}
       {labOrderForm && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-2xl w-full max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between mb-4">
+        <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl my-4">
+            {/* ヘッダー */}
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
               <h2 className="text-base font-bold text-gray-800">
                 技工指示書を作成
                 {labOrderForm.quote && <span className="ml-2 text-xs text-gray-400 font-normal">（見積 #{labOrderForm.quote.id} より）</span>}
@@ -750,36 +705,37 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
               <button type="button" onClick={() => setLabOrderForm(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
             </div>
 
-            <div className="overflow-y-auto flex-1 space-y-4">
+            <div className="px-6 py-4 space-y-4">
               {/* 基本情報 */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">技工所</label>
                   <select
                     value={labOrderForm.laboratoryId ?? ""}
-                    onChange={(e) => setLabOrderForm((prev) => prev ? { ...prev, laboratoryId: e.target.value ? Number(e.target.value) : null } : null)}
+                    onChange={(e) => setLabOrderForm((p) => p ? { ...p, laboratoryId: e.target.value ? Number(e.target.value) : null } : null)}
                     className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-purple-400"
                   >
-                    <option value="">技工所を選択...</option>
-                    {labs.map((lab) => <option key={lab.id} value={lab.id}>{lab.name}</option>)}
+                    <option value="">選択してください</option>
+                    {labs.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">担当医名</label>
-                  <input
-                    type="text"
-                    value={labOrderForm.doctorName}
-                    onChange={(e) => setLabOrderForm((prev) => prev ? { ...prev, doctorName: e.target.value } : null)}
-                    placeholder="例：田中 太郎"
+                  <label className="block text-xs text-gray-500 mb-1">担当医</label>
+                  <select
+                    value={labOrderForm.doctorId ?? ""}
+                    onChange={(e) => setLabOrderForm((p) => p ? { ...p, doctorId: e.target.value ? Number(e.target.value) : null } : null)}
                     className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-purple-400"
-                  />
+                  >
+                    <option value="">選択してください</option>
+                    {doctors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">発注日 <span className="text-red-400">*</span></label>
                   <input
                     type="date"
                     value={labOrderForm.orderDate}
-                    onChange={(e) => setLabOrderForm((prev) => prev ? { ...prev, orderDate: e.target.value } : null)}
+                    onChange={(e) => setLabOrderForm((p) => p ? { ...p, orderDate: e.target.value } : null)}
                     className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-purple-400"
                   />
                 </div>
@@ -788,81 +744,111 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                   <input
                     type="date"
                     value={labOrderForm.dueDate}
-                    onChange={(e) => setLabOrderForm((prev) => prev ? { ...prev, dueDate: e.target.value } : null)}
+                    onChange={(e) => setLabOrderForm((p) => p ? { ...p, dueDate: e.target.value } : null)}
                     className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-purple-400"
                   />
                 </div>
               </div>
 
-              {/* 品目テーブル */}
+              {/* 指示内容 — カード式（縦並び） */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-semibold text-gray-600">指示内容</p>
-                  <button
-                    type="button"
-                    onClick={addLabOrderItem}
-                    className="text-xs text-purple-600 hover:text-purple-800 border border-purple-200 px-2 py-0.5 rounded"
-                  >
+                  <button type="button" onClick={addLabOrderItem} className="text-xs text-purple-600 hover:text-purple-800 border border-purple-200 px-2 py-0.5 rounded">
                     + 行を追加
                   </button>
                 </div>
-
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  {/* ヘッダー */}
-                  <div className="grid text-xs font-medium text-gray-500 bg-gray-50 px-3 py-2 border-b border-gray-200" style={{ gridTemplateColumns: "1fr 1.5fr 1fr 0.7fr 0.4fr 0.3fr" }}>
-                    <span>部位</span>
-                    <span>処置名</span>
-                    <span>素材</span>
-                    <span>シェード</span>
-                    <span className="text-center">数量</span>
-                    <span></span>
-                  </div>
-                  {/* 行 */}
+                <div className="space-y-3">
                   {labOrderForm.items.map((item, i) => (
-                    <div key={i} className="grid gap-1 px-2 py-1.5 border-b border-gray-100 last:border-b-0 items-center" style={{ gridTemplateColumns: "1fr 1.5fr 1fr 0.7fr 0.4fr 0.3fr" }}>
-                      <input
-                        type="text"
-                        value={item.toothLabel}
-                        onChange={(e) => updateLabOrderItem(i, "toothLabel", e.target.value)}
-                        placeholder="例：上6"
-                        className="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-300"
-                      />
-                      <input
-                        type="text"
-                        value={item.treatmentName}
-                        onChange={(e) => updateLabOrderItem(i, "treatmentName", e.target.value)}
-                        placeholder="例：ジルコニアクラウン"
-                        className="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-300"
-                      />
-                      <input
-                        type="text"
-                        value={item.material}
-                        onChange={(e) => updateLabOrderItem(i, "material", e.target.value)}
-                        placeholder="例：ジルコニア"
-                        className="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-300"
-                      />
-                      <input
-                        type="text"
-                        value={item.shade}
-                        onChange={(e) => updateLabOrderItem(i, "shade", e.target.value)}
-                        placeholder="例：A2"
-                        className="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-300"
-                      />
-                      <input
-                        type="number"
-                        value={item.quantity}
-                        min={1}
-                        onChange={(e) => updateLabOrderItem(i, "quantity", Number(e.target.value))}
-                        className="border border-gray-200 rounded px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-purple-300"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeLabOrderItem(i)}
-                        disabled={labOrderForm.items.length <= 1}
-                        className="text-red-300 hover:text-red-500 text-base font-bold disabled:opacity-30 text-center"
-                      >
-                        ×
-                      </button>
+                    <div key={i} className="border border-gray-200 rounded-xl p-3 space-y-2 bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-purple-700">#{i + 1}</span>
+                        <button type="button" onClick={() => removeLabOrderItem(i)} disabled={labOrderForm.items.length <= 1} className="text-xs text-red-400 hover:text-red-600 disabled:opacity-30">削除</button>
+                      </div>
+                      {/* 1行目: 部位 + 処置名 */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-0.5">部位</label>
+                          <input
+                            type="text"
+                            value={item.toothLabel}
+                            onChange={(e) => updateLabOrderItem(i, "toothLabel", e.target.value)}
+                            placeholder="例：上6"
+                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs w-full bg-white focus:outline-none focus:ring-1 focus:ring-purple-300"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-0.5">処置名</label>
+                          <select
+                            value={item.treatmentName}
+                            onChange={(e) => updateLabOrderItem(i, "treatmentName", e.target.value)}
+                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs w-full bg-white focus:outline-none focus:ring-1 focus:ring-purple-300"
+                          >
+                            <option value="">選択 or 下で入力</option>
+                            {treatments.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      {/* 処置名 自由入力フォールバック */}
+                      {!treatments.find((t) => t.name === item.treatmentName) && (
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-0.5">処置名（直接入力）</label>
+                          <input
+                            type="text"
+                            value={item.treatmentName}
+                            onChange={(e) => updateLabOrderItem(i, "treatmentName", e.target.value)}
+                            placeholder="例：ジルコニアクラウン"
+                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs w-full bg-white focus:outline-none focus:ring-1 focus:ring-purple-300"
+                          />
+                        </div>
+                      )}
+                      {/* 2行目: 素材 + シェード + 数量 */}
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-0.5">素材</label>
+                          <select
+                            value={item.material}
+                            onChange={(e) => updateLabOrderItem(i, "material", e.target.value)}
+                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs w-full bg-white focus:outline-none focus:ring-1 focus:ring-purple-300"
+                          >
+                            <option value="">選択 or 入力</option>
+                            {materials.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-0.5">シェード</label>
+                          <input
+                            type="text"
+                            value={item.shade}
+                            onChange={(e) => updateLabOrderItem(i, "shade", e.target.value)}
+                            placeholder="例：A2"
+                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs w-full bg-white focus:outline-none focus:ring-1 focus:ring-purple-300"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-0.5">数量</label>
+                          <input
+                            type="number"
+                            value={item.quantity}
+                            min={1}
+                            onChange={(e) => updateLabOrderItem(i, "quantity", Number(e.target.value))}
+                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs w-full bg-white text-center focus:outline-none focus:ring-1 focus:ring-purple-300"
+                          />
+                        </div>
+                      </div>
+                      {/* 素材 自由入力フォールバック */}
+                      {item.material && !materials.find((m) => m.name === item.material) && (
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-0.5">素材（直接入力）</label>
+                          <input
+                            type="text"
+                            value={item.material}
+                            onChange={(e) => updateLabOrderItem(i, "material", e.target.value)}
+                            placeholder="例：ジルコニア"
+                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs w-full bg-white focus:outline-none focus:ring-1 focus:ring-purple-300"
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -873,7 +859,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                 <label className="block text-xs text-gray-500 mb-1">特記事項</label>
                 <textarea
                   value={labOrderForm.note}
-                  onChange={(e) => setLabOrderForm((prev) => prev ? { ...prev, note: e.target.value } : null)}
+                  onChange={(e) => setLabOrderForm((p) => p ? { ...p, note: e.target.value } : null)}
                   rows={3}
                   placeholder="例：色調は隣在歯に合わせてください"
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none"
@@ -881,21 +867,12 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
               </div>
             </div>
 
-            <div className="flex gap-3 mt-4">
-              <button
-                type="button"
-                onClick={() => setLabOrderForm(null)}
-                disabled={labOrderSubmitting}
-                className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50"
-              >
+            {/* フッターボタン */}
+            <div className="flex gap-3 px-6 pb-5">
+              <button type="button" onClick={() => setLabOrderForm(null)} disabled={labOrderSubmitting} className="flex-1 border border-gray-300 text-gray-600 py-2.5 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50">
                 キャンセル
               </button>
-              <button
-                type="button"
-                onClick={submitLabOrder}
-                disabled={labOrderSubmitting || !labOrderForm.orderDate || !labOrderForm.dueDate}
-                className="flex-1 bg-purple-600 text-white py-2 rounded-xl text-sm font-semibold hover:bg-purple-700 disabled:opacity-50"
-              >
+              <button type="button" onClick={submitLabOrder} disabled={labOrderSubmitting || !labOrderForm.orderDate || !labOrderForm.dueDate} className="flex-1 bg-purple-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-purple-700 disabled:opacity-50">
                 {labOrderSubmitting ? "保存中..." : "保存してPDF生成"}
               </button>
             </div>
@@ -955,7 +932,6 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
             <h2 className="text-base font-bold text-gray-800 mb-2">保証書を削除しますか？</h2>
-            <p className="text-sm text-gray-500 mb-1">この保証書を削除します。</p>
             <p className="text-xs text-gray-400 mb-5">この操作は取り消せません。</p>
             <div className="flex gap-3">
               <button type="button" onClick={() => setWarrantyDeleteConfirmId(null)} disabled={!!deletingWarrantyId} className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50">キャンセル</button>
@@ -970,7 +946,6 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
             <h2 className="text-base font-bold text-gray-800 mb-2">技工指示書を削除しますか？</h2>
-            <p className="text-sm text-gray-500 mb-1">この技工指示書を削除します。</p>
             <p className="text-xs text-gray-400 mb-5">この操作は取り消せません。</p>
             <div className="flex gap-3">
               <button type="button" onClick={() => setLabOrderDeleteConfirmId(null)} disabled={!!deletingLabOrderId} className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50">キャンセル</button>

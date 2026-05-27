@@ -18,7 +18,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import type { CategoryWithTreatments, TreatmentItem, TreatmentOption } from "@/lib/types";
 
-type AdminTab = "categories" | "treatments" | "labs" | "password";
+type AdminTab = "categories" | "treatments" | "labs" | "doctors" | "materials" | "password";
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
@@ -101,6 +101,8 @@ export default function AdminPage() {
             { key: "treatments", label: "治療メニュー" },
             { key: "categories", label: "カテゴリ管理" },
             { key: "labs", label: "技工所管理" },
+            { key: "doctors", label: "担当医管理" },
+            { key: "materials", label: "素材管理" },
             { key: "password", label: "パスワード変更" },
           ] as const).map(({ key, label }) => (
             <button
@@ -121,6 +123,8 @@ export default function AdminPage() {
             {tab === "categories" && <CategoriesTab categories={categories} onReload={loadData} />}
             {tab === "treatments" && <TreatmentsTab categories={categories} onReload={loadData} />}
             {tab === "labs" && <LabsTab />}
+            {tab === "doctors" && <DoctorsTab />}
+            {tab === "materials" && <MaterialsTab />}
             {tab === "password" && <PasswordTab />}
           </>
         )}
@@ -587,6 +591,259 @@ function TreatmentsTab({ categories, onReload }: { categories: CategoryWithTreat
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+interface Doctor {
+  id: number;
+  name: string;
+  isActive: boolean;
+}
+
+function DoctorsTab() {
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [newName, setNewName] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { loadDoctors(); }, []);
+
+  async function loadDoctors() {
+    const res = await fetch("/api/doctors");
+    setDoctors(await res.json());
+  }
+
+  async function addDoctor() {
+    if (!newName.trim()) return;
+    setSaving(true);
+    await fetch("/api/doctors", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newName.trim() }),
+    });
+    setNewName("");
+    await loadDoctors();
+    setSaving(false);
+  }
+
+  async function updateDoctor(id: number) {
+    await fetch(`/api/doctors/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: editName }),
+    });
+    setEditingId(null);
+    loadDoctors();
+  }
+
+  async function toggleActive(doctor: Doctor) {
+    await fetch(`/api/doctors/${doctor.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive: !doctor.isActive }),
+    });
+    loadDoctors();
+  }
+
+  async function deleteDoctor(id: number) {
+    if (!confirm("この担当医を削除しますか？")) return;
+    await fetch(`/api/doctors/${id}`, { method: "DELETE" });
+    loadDoctors();
+  }
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-5">
+      <h2 className="text-base font-semibold text-gray-800 mb-4">担当医管理</h2>
+
+      {/* 新規追加 */}
+      <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
+        <h3 className="text-sm font-semibold text-blue-800 mb-3">新規追加</h3>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="例：田中 太郎"
+            className="border border-gray-300 rounded px-3 py-2 text-sm flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            onKeyDown={(e) => e.key === "Enter" && addDoctor()}
+          />
+          <button
+            type="button"
+            onClick={addDoctor}
+            disabled={saving || !newName.trim()}
+            className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
+          >
+            追加する
+          </button>
+        </div>
+      </div>
+
+      {/* 一覧 */}
+      <div className="space-y-2">
+        {doctors.length === 0 && <p className="text-sm text-gray-400">担当医が登録されていません</p>}
+        {doctors.map((doc) => (
+          <div key={doc.id} className={`rounded-lg border px-4 py-3 flex items-center gap-3 ${!doc.isActive ? "opacity-50 bg-gray-50 border-gray-100" : "bg-white border-gray-200"}`}>
+            {editingId === doc.id ? (
+              <>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="border rounded px-2 py-1 text-sm flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  autoFocus
+                  onKeyDown={(e) => e.key === "Enter" && updateDoctor(doc.id)}
+                />
+                <button type="button" onClick={() => updateDoctor(doc.id)} className="text-xs text-blue-600 hover:text-blue-800">保存</button>
+                <button type="button" onClick={() => setEditingId(null)} className="text-xs text-gray-400 hover:text-gray-600">キャンセル</button>
+              </>
+            ) : (
+              <>
+                <span className="flex-1 text-sm font-medium text-gray-800">{doc.name}</span>
+                {!doc.isActive && <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">無効</span>}
+                <button
+                  type="button"
+                  onClick={() => { setEditingId(doc.id); setEditName(doc.name); }}
+                  className="text-xs text-blue-500 hover:text-blue-700"
+                >編集</button>
+                <button
+                  type="button"
+                  onClick={() => toggleActive(doc)}
+                  className={`text-xs ${doc.isActive ? "text-orange-400 hover:text-orange-600" : "text-green-500 hover:text-green-700"}`}
+                >
+                  {doc.isActive ? "無効化" : "有効化"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deleteDoctor(doc.id)}
+                  className="text-xs text-red-400 hover:text-red-600"
+                >削除</button>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface LabMaterial {
+  id: number;
+  name: string;
+  isActive: boolean;
+}
+
+function MaterialsTab() {
+  const [materials, setMaterials] = useState<LabMaterial[]>([]);
+  const [newName, setNewName] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { loadMaterials(); }, []);
+
+  async function loadMaterials() {
+    const res = await fetch("/api/lab-materials");
+    setMaterials(await res.json());
+  }
+
+  async function addMaterial() {
+    if (!newName.trim()) return;
+    setSaving(true);
+    await fetch("/api/lab-materials", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newName.trim() }),
+    });
+    setNewName("");
+    await loadMaterials();
+    setSaving(false);
+  }
+
+  async function updateMaterial(id: number) {
+    await fetch(`/api/lab-materials/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: editName }),
+    });
+    setEditingId(null);
+    loadMaterials();
+  }
+
+  async function toggleActive(mat: LabMaterial) {
+    await fetch(`/api/lab-materials/${mat.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive: !mat.isActive }),
+    });
+    loadMaterials();
+  }
+
+  async function deleteMaterial(id: number) {
+    if (!confirm("この素材を削除しますか？")) return;
+    await fetch(`/api/lab-materials/${id}`, { method: "DELETE" });
+    loadMaterials();
+  }
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-5">
+      <h2 className="text-base font-semibold text-gray-800 mb-1">素材管理</h2>
+      <p className="text-xs text-gray-400 mb-4">技工指示書の「素材」プルダウンに表示される素材名を管理します。</p>
+
+      <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
+        <h3 className="text-sm font-semibold text-blue-800 mb-3">新規追加</h3>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="例：ジルコニア、メタルボンド、e.max"
+            className="border border-gray-300 rounded px-3 py-2 text-sm flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            onKeyDown={(e) => e.key === "Enter" && addMaterial()}
+          />
+          <button
+            type="button"
+            onClick={addMaterial}
+            disabled={saving || !newName.trim()}
+            className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
+          >
+            追加する
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {materials.length === 0 && <p className="text-sm text-gray-400">素材が登録されていません</p>}
+        {materials.map((mat) => (
+          <div key={mat.id} className={`rounded-lg border px-4 py-3 flex items-center gap-3 ${!mat.isActive ? "opacity-50 bg-gray-50 border-gray-100" : "bg-white border-gray-200"}`}>
+            {editingId === mat.id ? (
+              <>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="border rounded px-2 py-1 text-sm flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  autoFocus
+                  onKeyDown={(e) => e.key === "Enter" && updateMaterial(mat.id)}
+                />
+                <button type="button" onClick={() => updateMaterial(mat.id)} className="text-xs text-blue-600 hover:text-blue-800">保存</button>
+                <button type="button" onClick={() => setEditingId(null)} className="text-xs text-gray-400 hover:text-gray-600">キャンセル</button>
+              </>
+            ) : (
+              <>
+                <span className="flex-1 text-sm font-medium text-gray-800">{mat.name}</span>
+                {!mat.isActive && <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">無効</span>}
+                <button type="button" onClick={() => { setEditingId(mat.id); setEditName(mat.name); }} className="text-xs text-blue-500 hover:text-blue-700">編集</button>
+                <button type="button" onClick={() => toggleActive(mat)} className={`text-xs ${mat.isActive ? "text-orange-400 hover:text-orange-600" : "text-green-500 hover:text-green-700"}`}>
+                  {mat.isActive ? "無効化" : "有効化"}
+                </button>
+                <button type="button" onClick={() => deleteMaterial(mat.id)} className="text-xs text-red-400 hover:text-red-600">削除</button>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
