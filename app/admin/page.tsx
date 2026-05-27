@@ -18,7 +18,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import type { CategoryWithTreatments, TreatmentItem, TreatmentOption } from "@/lib/types";
 
-type AdminTab = "categories" | "treatments" | "labs" | "doctors" | "materials" | "password";
+type AdminTab = "categories" | "treatments" | "labs" | "doctors" | "materials" | "discounts" | "password";
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
@@ -103,6 +103,7 @@ export default function AdminPage() {
             { key: "labs", label: "技工所管理" },
             { key: "doctors", label: "担当医管理" },
             { key: "materials", label: "素材管理" },
+            { key: "discounts", label: "割引管理" },
             { key: "password", label: "パスワード変更" },
           ] as const).map(({ key, label }) => (
             <button
@@ -125,6 +126,7 @@ export default function AdminPage() {
             {tab === "labs" && <LabsTab />}
             {tab === "doctors" && <DoctorsTab />}
             {tab === "materials" && <MaterialsTab />}
+            {tab === "discounts" && <DiscountsTab />}
             {tab === "password" && <PasswordTab />}
           </>
         )}
@@ -1022,6 +1024,161 @@ function LabsTab() {
                   className="text-xs text-red-400 hover:text-red-600"
                 >削除</button>
               </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface DiscountType {
+  id: number;
+  name: string;
+  discountPercent: number;
+  isActive: boolean;
+}
+
+function DiscountsTab() {
+  const [discounts, setDiscounts] = useState<DiscountType[]>([]);
+  const [newForm, setNewForm] = useState({ name: "", discountPercent: "" });
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", discountPercent: "" });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { loadDiscounts(); }, []);
+
+  async function loadDiscounts() {
+    const res = await fetch("/api/discount-types");
+    setDiscounts(await res.json());
+  }
+
+  async function addDiscount() {
+    const pct = Number(newForm.discountPercent);
+    if (!newForm.name.trim() || !pct || pct <= 0 || pct > 100) return;
+    setSaving(true);
+    await fetch("/api/discount-types", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newForm.name.trim(), discountPercent: pct }),
+    });
+    setNewForm({ name: "", discountPercent: "" });
+    await loadDiscounts();
+    setSaving(false);
+  }
+
+  async function updateDiscount(id: number) {
+    const pct = Number(editForm.discountPercent);
+    if (!editForm.name.trim() || !pct) return;
+    await fetch(`/api/discount-types/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: editForm.name.trim(), discountPercent: pct }),
+    });
+    setEditingId(null);
+    loadDiscounts();
+  }
+
+  async function toggleActive(d: DiscountType) {
+    await fetch(`/api/discount-types/${d.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive: !d.isActive }),
+    });
+    loadDiscounts();
+  }
+
+  async function deleteDiscount(id: number) {
+    if (!confirm("この割引種類を削除しますか？")) return;
+    await fetch(`/api/discount-types/${id}`, { method: "DELETE" });
+    loadDiscounts();
+  }
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-5">
+      <h2 className="text-base font-semibold text-gray-800 mb-1">割引管理</h2>
+      <p className="text-xs text-gray-400 mb-4">見積もり作成時に選択できる割引の種類と割引率を管理します。</p>
+
+      <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
+        <h3 className="text-sm font-semibold text-blue-800 mb-3">新規追加</h3>
+        <div className="flex gap-2 items-end">
+          <div className="flex-1">
+            <label className="block text-xs text-gray-500 mb-1">割引名 <span className="text-red-400">*</span></label>
+            <input
+              type="text"
+              value={newForm.name}
+              onChange={(e) => setNewForm({ ...newForm, name: e.target.value })}
+              placeholder="例：紹介割引、セット割引"
+              className="border border-gray-300 rounded px-3 py-2 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
+              onKeyDown={(e) => e.key === "Enter" && addDiscount()}
+            />
+          </div>
+          <div className="w-32">
+            <label className="block text-xs text-gray-500 mb-1">割引率（%） <span className="text-red-400">*</span></label>
+            <div className="relative">
+              <input
+                type="number"
+                value={newForm.discountPercent}
+                onChange={(e) => setNewForm({ ...newForm, discountPercent: e.target.value })}
+                onFocus={(e) => e.target.select()}
+                min={1}
+                max={100}
+                placeholder="10"
+                className="border border-gray-300 rounded px-3 py-2 text-sm w-full pr-6 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={addDiscount}
+            disabled={saving || !newForm.name.trim() || !newForm.discountPercent}
+            className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50 shrink-0"
+          >
+            追加する
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {discounts.length === 0 && <p className="text-sm text-gray-400">割引種類が登録されていません</p>}
+        {discounts.map((d) => (
+          <div key={d.id} className={`rounded-lg border px-4 py-3 flex items-center gap-3 ${!d.isActive ? "opacity-50 bg-gray-50 border-gray-100" : "bg-white border-gray-200"}`}>
+            {editingId === d.id ? (
+              <>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  className="border rounded px-2 py-1 text-sm flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  autoFocus
+                />
+                <div className="relative w-24">
+                  <input
+                    type="number"
+                    value={editForm.discountPercent}
+                    onChange={(e) => setEditForm({ ...editForm, discountPercent: e.target.value })}
+                    onFocus={(e) => e.target.select()}
+                    min={1}
+                    max={100}
+                    className="border rounded px-2 py-1 text-sm w-full pr-5 focus:outline-none"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
+                </div>
+                <button type="button" onClick={() => updateDiscount(d.id)} className="text-xs text-blue-600 hover:text-blue-800">保存</button>
+                <button type="button" onClick={() => setEditingId(null)} className="text-xs text-gray-400 hover:text-gray-600">キャンセル</button>
+              </>
+            ) : (
+              <>
+                <span className="flex-1 text-sm font-medium text-gray-800">{d.name}</span>
+                <span className="text-sm font-bold text-red-500">-{d.discountPercent}%</span>
+                {!d.isActive && <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">無効</span>}
+                <button type="button" onClick={() => { setEditingId(d.id); setEditForm({ name: d.name, discountPercent: String(d.discountPercent) }); }} className="text-xs text-blue-500 hover:text-blue-700">編集</button>
+                <button type="button" onClick={() => toggleActive(d)} className={`text-xs ${d.isActive ? "text-orange-400 hover:text-orange-600" : "text-green-500 hover:text-green-700"}`}>
+                  {d.isActive ? "無効化" : "有効化"}
+                </button>
+                <button type="button" onClick={() => deleteDiscount(d.id)} className="text-xs text-red-400 hover:text-red-600">削除</button>
+              </>
             )}
           </div>
         ))}

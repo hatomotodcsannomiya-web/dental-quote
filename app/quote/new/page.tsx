@@ -40,11 +40,21 @@ function QuoteNewInner() {
   const [warrantyLoading, setWarrantyLoading] = useState(false);
   const [warrantyEditData, setWarrantyEditData] = useState<WarrantyItem[] | null>(null);
   const [previewPdf, setPreviewPdf] = useState<{ url: string; filename: string } | null>(null);
+  const [discountTypes, setDiscountTypes] = useState<{ id: number; name: string; discountPercent: number }[]>([]);
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [selectedDiscountId, setSelectedDiscountId] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
-      const [treatmentsRes] = await Promise.all([fetch("/api/treatments")]);
+      const [treatmentsRes, discountsRes] = await Promise.all([
+        fetch("/api/treatments"),
+        fetch("/api/discount-types"),
+      ]);
       setCategories(await treatmentsRes.json());
+      if (discountsRes.ok) {
+        const all = await discountsRes.json();
+        setDiscountTypes(all.filter((d: { isActive: boolean }) => d.isActive));
+      }
 
       if (patientIdParam) {
         const res = await fetch(`/api/patients/${patientIdParam}`);
@@ -74,6 +84,29 @@ function QuoteNewInner() {
     setItems((prev) => prev.map((item, i) => i === index ? { ...item, ...updated } : item));
   }, []);
 
+  function applyDiscount() {
+    if (!selectedDiscountId) return;
+    const dtype = discountTypes.find((d) => d.id === selectedDiscountId);
+    if (!dtype) return;
+    // 割引行を除いた小計で計算
+    const baseSubtotal = items
+      .filter((i) => i.toothId !== "__discount__")
+      .reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+    const discountAmount = Math.floor(baseSubtotal * (dtype.discountPercent / 100));
+    const discountItem: QuoteLineItem = {
+      toothId: "__discount__",
+      toothLabel: "",
+      treatmentId: 0,
+      treatmentName: `${dtype.name}（-${dtype.discountPercent}%）`,
+      categoryName: "割引",
+      quantity: 1,
+      unitPrice: -discountAmount,
+    };
+    setItems((prev) => [...prev.filter((i) => i.toothId !== "__discount__"), discountItem]);
+    setShowDiscountModal(false);
+    setSelectedDiscountId(null);
+  }
+
   async function saveQuote() {
     if (items.length === 0) return;
     setSaving(true);
@@ -87,7 +120,8 @@ function QuoteNewInner() {
           patientFkId: patient?.id ?? null,
           memo: memo || null,
           items: items.map((item) => ({
-            treatmentId: item.treatmentId,
+            treatmentId: item.treatmentId || null,
+            treatmentName: item.treatmentName,
             toothLabel: item.toothLabel,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
@@ -377,6 +411,28 @@ function QuoteNewInner() {
                 </tbody>
               </table>
 
+              {/* 割引追加ボタン */}
+              {discountTypes.length > 0 && (
+                <div className="mt-3 flex justify-start">
+                  <button
+                    type="button"
+                    onClick={() => { setShowDiscountModal(true); setSelectedDiscountId(discountTypes[0]?.id ?? null); }}
+                    className="text-xs text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg flex items-center gap-1"
+                  >
+                    <span className="font-bold">▼</span> %割引を追加
+                  </button>
+                  {items.some((i) => i.toothId === "__discount__") && (
+                    <button
+                      type="button"
+                      onClick={() => setItems((prev) => prev.filter((i) => i.toothId !== "__discount__"))}
+                      className="ml-2 text-xs text-gray-400 hover:text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg"
+                    >
+                      割引を削除
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div className="mt-4 flex flex-col items-end gap-1 text-sm">
                 <div className="flex gap-8"><span className="text-gray-500">小計（税抜）</span><span>¥{subtotal.toLocaleString()}</span></div>
                 <div className="flex gap-8"><span className="text-gray-500">消費税（10%）</span><span>¥{tax.toLocaleString()}</span></div>
@@ -452,6 +508,39 @@ function QuoteNewInner() {
             <div className="flex gap-3">
               <button type="button" onClick={() => setWarrantyEditData(null)} disabled={warrantyLoading} className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50">キャンセル</button>
               <button type="button" onClick={submitWarrantyPDF} disabled={warrantyLoading} className="flex-1 bg-emerald-600 text-white py-2 rounded-xl text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50">{warrantyLoading ? "保存中..." : "保存して生成"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 割引選択モーダル */}
+      {showDiscountModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
+            <h2 className="text-base font-bold text-gray-800 mb-1">%割引を追加</h2>
+            <p className="text-xs text-gray-400 mb-4">
+              割引前小計 ¥{items.filter((i) => i.toothId !== "__discount__").reduce((s, i) => s + i.unitPrice * i.quantity, 0).toLocaleString()} に対して適用されます。
+            </p>
+            <div className="space-y-2 mb-5">
+              {discountTypes.map((d) => {
+                const base = items.filter((i) => i.toothId !== "__discount__").reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+                const amount = Math.floor(base * (d.discountPercent / 100));
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setSelectedDiscountId(d.id)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm transition-all ${selectedDiscountId === d.id ? "border-red-400 bg-red-50 text-red-700 font-semibold" : "border-gray-200 hover:border-red-200 hover:bg-red-50"}`}
+                  >
+                    <span>{d.name}</span>
+                    <span className="font-bold text-red-600">-{d.discountPercent}%（▼ ¥{amount.toLocaleString()}）</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => { setShowDiscountModal(false); setSelectedDiscountId(null); }} className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50">キャンセル</button>
+              <button type="button" onClick={applyDiscount} disabled={!selectedDiscountId} className="flex-1 bg-red-500 text-white py-2 rounded-xl text-sm font-semibold hover:bg-red-600 disabled:opacity-50">適用する</button>
             </div>
           </div>
         </div>

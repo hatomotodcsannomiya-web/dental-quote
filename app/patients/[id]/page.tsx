@@ -10,7 +10,8 @@ interface QuoteItem {
   toothLabel: string;
   quantity: number;
   unitPrice: number;
-  treatment: { name: string; category: { name: string } };
+  treatmentName: string;
+  treatment: { name: string; category: { name: string } } | null;
 }
 
 interface Quote {
@@ -93,14 +94,15 @@ const TECH_EXCLUDE_KEYWORDS = ["仮歯", "麻酔", "抜歯", "消毒", "レン�
 function filterLabItems(items: QuoteItem[]): LabOrderItemForm[] {
   return items
     .filter((item) => {
-      const name = item.treatment.name;
+      const name = item.treatment?.name ?? item.treatmentName;
+      if (!name) return false;
       if (name.startsWith("└ ")) return false;
       if (TECH_EXCLUDE_KEYWORDS.some((kw) => name.includes(kw))) return false;
       return true;
     })
     .map((item) => ({
       toothLabel: item.toothLabel,
-      treatmentName: item.treatment.name,
+      treatmentName: item.treatment?.name ?? item.treatmentName,
       material: "",
       shade: "",
       quantity: item.quantity,
@@ -226,8 +228,8 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
       const createdAt = new Date(quote.createdAt).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
       const items = quote.items.map((item) => ({
         toothId: "", toothLabel: item.toothLabel,
-        treatmentId: 0, treatmentName: item.treatment.name,
-        categoryName: item.treatment.category.name,
+        treatmentId: 0, treatmentName: item.treatment?.name ?? item.treatmentName,
+        categoryName: item.treatment?.category.name ?? "割引",
         quantity: item.quantity, unitPrice: item.unitPrice,
       }));
       const res = await fetch("/api/pdf", {
@@ -247,7 +249,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     const defaultDate = new Date(quote.createdAt).toISOString().slice(0, 10);
     const rawItems = quote.items.map((item) => ({
       toothLabel: item.toothLabel,
-      treatmentName: item.treatment.name,
+      treatmentName: item.treatment?.name ?? item.treatmentName,
     }));
     const items = filterWarrantyItems(rawItems, defaultDate);
     if (items.length === 0) return;
@@ -597,7 +599,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                             <tr key={i} className={`border-b border-gray-50 ${isDiscount ? "bg-red-50" : ""}`}>
                               <td className="py-1">{item.toothLabel}</td>
                               <td className={`py-1 ${isDiscount ? "text-red-700 font-medium" : ""}`}>
-                                {isDiscount && <span className="text-xs mr-0.5">▼</span>}{item.treatment.name}
+                                {isDiscount && <span className="text-xs mr-0.5">▼</span>}{item.treatment?.name ?? item.treatmentName}
                               </td>
                               <td className="py-1 text-right">{item.quantity}</td>
                               <td className={`py-1 text-right ${isDiscount ? "text-red-600" : ""}`}>¥{item.unitPrice.toLocaleString()}</td>
