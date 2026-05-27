@@ -295,7 +295,7 @@ function QuoteNewInner() {
                       <div key={index} className="flex flex-wrap items-center gap-2 bg-purple-50 rounded-lg px-3 py-2 text-xs">
                         <span className="font-medium text-purple-800 flex-1 min-w-0">{item.toothLabel}</span>
                         <span className="text-gray-700">{item.treatmentName}</span>
-                        <span className="text-gray-500">¥{item.unitPrice.toLocaleString()}</span>
+                        <span className={item.unitPrice < 0 ? "text-red-500 font-medium" : "text-gray-500"}>¥{item.unitPrice.toLocaleString()}</span>
                         <div className="flex items-center gap-1">
                           <span className="text-gray-400">×</span>
                           <input
@@ -306,7 +306,7 @@ function QuoteNewInner() {
                             className="w-12 text-center border border-gray-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-purple-400"
                           />
                         </div>
-                        <span className="font-semibold text-gray-800">¥{(item.unitPrice * item.quantity).toLocaleString()}</span>
+                        <span className={`font-semibold ${item.unitPrice < 0 ? "text-red-600" : "text-gray-800"}`}>¥{(item.unitPrice * item.quantity).toLocaleString()}</span>
                         <button type="button" onClick={() => removeItem(index)} className="text-red-400 hover:text-red-600 font-bold text-sm">×</button>
                       </div>
                     );
@@ -355,19 +355,25 @@ function QuoteNewInner() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item, i) => (
-                    <tr key={i} className={`border-b border-gray-100 ${item.isOption ? "bg-amber-50" : "hover:bg-gray-50"}`}>
+                  {items.map((item, i) => {
+                    const lineTotal = item.unitPrice * item.quantity;
+                    const isDiscount = item.unitPrice < 0;
+                    return (
+                    <tr key={i} className={`border-b border-gray-100 ${isDiscount ? "bg-red-50" : item.isOption ? "bg-amber-50" : "hover:bg-gray-50"}`}>
                       <td className="py-2 px-3 text-xs">{item.isOption ? "" : item.toothLabel}</td>
-                      <td className={`py-2 px-3 ${item.isOption ? "text-amber-700 text-xs pl-5" : ""}`}>{item.treatmentName}</td>
+                      <td className={`py-2 px-3 ${isDiscount ? "text-red-700 font-medium" : item.isOption ? "text-amber-700 text-xs pl-5" : ""}`}>
+                        {isDiscount && <span className="text-xs mr-1">▼</span>}{item.treatmentName}
+                      </td>
                       <td className="py-2 px-3 text-gray-500 text-xs">{item.isOption ? "" : item.categoryName}</td>
                       <td className="py-2 px-3 text-right">{item.quantity}</td>
-                      <td className="py-2 px-3 text-right">¥{item.unitPrice.toLocaleString()}</td>
-                      <td className="py-2 px-3 text-right font-medium">¥{(item.unitPrice * item.quantity).toLocaleString()}</td>
+                      <td className={`py-2 px-3 text-right ${isDiscount ? "text-red-600" : ""}`}>¥{item.unitPrice.toLocaleString()}</td>
+                      <td className={`py-2 px-3 text-right font-medium ${isDiscount ? "text-red-600" : ""}`}>¥{lineTotal.toLocaleString()}</td>
                       <td className="py-2 px-2 text-center">
                         <button type="button" onClick={() => removeItem(i)} className="text-red-300 hover:text-red-500 text-base font-bold leading-none">×</button>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
 

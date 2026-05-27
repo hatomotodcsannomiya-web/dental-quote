@@ -591,15 +591,20 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                           </tr>
                         </thead>
                         <tbody>
-                          {quote.items.map((item, i) => (
-                            <tr key={i} className="border-b border-gray-50">
+                          {quote.items.map((item, i) => {
+                            const isDiscount = item.unitPrice < 0;
+                            return (
+                            <tr key={i} className={`border-b border-gray-50 ${isDiscount ? "bg-red-50" : ""}`}>
                               <td className="py-1">{item.toothLabel}</td>
-                              <td className="py-1">{item.treatment.name}</td>
+                              <td className={`py-1 ${isDiscount ? "text-red-700 font-medium" : ""}`}>
+                                {isDiscount && <span className="text-xs mr-0.5">▼</span>}{item.treatment.name}
+                              </td>
                               <td className="py-1 text-right">{item.quantity}</td>
-                              <td className="py-1 text-right">¥{item.unitPrice.toLocaleString()}</td>
-                              <td className="py-1 text-right">¥{(item.unitPrice * item.quantity).toLocaleString()}</td>
+                              <td className={`py-1 text-right ${isDiscount ? "text-red-600" : ""}`}>¥{item.unitPrice.toLocaleString()}</td>
+                              <td className={`py-1 text-right ${isDiscount ? "text-red-600" : ""}`}>¥{(item.unitPrice * item.quantity).toLocaleString()}</td>
                             </tr>
-                          ))}
+                            );
+                          })}
                         </tbody>
                       </table>
                       <div className="flex items-center justify-between">

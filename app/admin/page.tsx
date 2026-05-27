@@ -279,7 +279,7 @@ function SortableTreatmentRow(props: SortableRowProps) {
         {editingId === t.id ? (
           <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-2">
             <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="border rounded px-2 py-1 text-xs col-span-2" />
-            <input type="number" value={form.unitPrice} onChange={(e) => setForm({ ...form, unitPrice: Number(e.target.value) })} onFocus={(e) => e.target.select()} className="border rounded px-2 py-1 text-xs" />
+            <input type="number" value={form.unitPrice} onChange={(e) => setForm({ ...form, unitPrice: Number(e.target.value) })} onFocus={(e) => e.target.select()} className="border rounded px-2 py-1 text-xs" placeholder="例：-10000" />
             <input type="text" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="border rounded px-2 py-1 text-xs" />
             <div className="col-span-2 flex gap-2">
               <button type="button" onClick={() => updateTreatment(t.id)} className="text-xs text-blue-600 hover:text-blue-800">保存</button>
@@ -289,7 +289,9 @@ function SortableTreatmentRow(props: SortableRowProps) {
         ) : (
           <>
             <span className="flex-1 text-sm">{t.name}</span>
-            <span className="text-xs text-gray-500">¥{t.unitPrice.toLocaleString()}/{t.unit}</span>
+            <span className={`text-xs ${t.unitPrice < 0 ? "text-red-500 font-medium" : "text-gray-500"}`}>
+              {t.unitPrice < 0 ? `▼ ¥${Math.abs(t.unitPrice).toLocaleString()}` : `¥${t.unitPrice.toLocaleString()}`}/{t.unit}
+            </span>
             <button
               type="button"
               onClick={() => toggleOptions(t.id)}
@@ -332,7 +334,6 @@ function SortableTreatmentRow(props: SortableRowProps) {
                         onChange={(e) => setOptionForm({ ...optionForm, price: Number(e.target.value) })}
                         onFocus={(e) => e.target.select()}
                         className="border rounded px-2 py-0.5 text-xs w-24 focus:outline-none"
-                        min={0}
                       />
                       <button type="button" onClick={() => updateOption(t.id, opt.id)} className="text-xs text-blue-600 hover:text-blue-800">保存</button>
                       <button type="button" onClick={() => setEditingOptionId(null)} className="text-xs text-gray-400">キャンセル</button>
@@ -340,7 +341,9 @@ function SortableTreatmentRow(props: SortableRowProps) {
                   ) : (
                     <>
                       <span className="flex-1 text-xs">{opt.name}</span>
-                      <span className="text-xs text-gray-500">¥{opt.price.toLocaleString()}</span>
+                      <span className={`text-xs ${opt.price < 0 ? "text-red-500 font-medium" : "text-gray-500"}`}>
+                        {opt.price < 0 ? `▼ ¥${Math.abs(opt.price).toLocaleString()}` : `¥${opt.price.toLocaleString()}`}
+                      </span>
                       <button
                         type="button"
                         onClick={() => { setEditingOptionId(opt.id); setOptionForm({ name: opt.name, price: opt.price }); }}
@@ -369,7 +372,6 @@ function SortableTreatmentRow(props: SortableRowProps) {
               onChange={(e) => setNewOptionForms((prev) => ({ ...prev, [t.id]: { ...prev[t.id] ?? { name: "", price: "0" }, price: e.target.value } }))}
               onFocus={(e) => e.target.select()}
               placeholder="価格"
-              min={0}
               className="border border-gray-300 rounded px-2 py-1 text-xs w-24 focus:outline-none"
             />
             <button
@@ -539,14 +541,14 @@ function TreatmentsTab({ categories, onReload }: { categories: CategoryWithTreat
             </select>
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">単価（税抜・円）</label>
+            <label className="block text-xs text-gray-500 mb-1">単価（税抜・円）※マイナス値で割引</label>
             <input
               type="number"
               value={newForm.unitPrice}
               onChange={(e) => setNewForm({ ...newForm, unitPrice: Number(e.target.value) })}
               onFocus={(e) => e.target.select()}
-              min={0}
               className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full focus:outline-none"
+              placeholder="例：-10000（割引の場合）"
             />
           </div>
           <div>

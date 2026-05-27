@@ -112,15 +112,19 @@ export default function QuotePDFDoc({ items, createdAt }: Props) {
               <Text style={[styles.colUnit,      styles.headerText]}>単価</Text>
               <Text style={[styles.colTotal,     styles.headerText]}>小計</Text>
             </View>
-            {catItems.map((item, i) => (
-              <View key={i} style={styles.tableRow}>
+            {catItems.map((item, i) => {
+              const isDiscount = Number(item.unitPrice) < 0;
+              const discountStyle = isDiscount ? { color: "#dc2626" } : {};
+              return (
+              <View key={i} style={[styles.tableRow, isDiscount ? { backgroundColor: "#fff5f5" } : {}]}>
                 <Text style={styles.colTooth}>{item.toothLabel}</Text>
-                <Text style={styles.colTreatment}>{item.treatmentName}</Text>
+                <Text style={[styles.colTreatment, discountStyle]}>{isDiscount ? "▼ " : ""}{item.treatmentName}</Text>
                 <Text style={styles.colQty}>{item.quantity}</Text>
-                <Text style={styles.colUnit}>{fmt(item.unitPrice)}</Text>
-                <Text style={styles.colTotal}>{fmt(item.unitPrice * item.quantity)}</Text>
+                <Text style={[styles.colUnit, discountStyle]}>{fmt(Number(item.unitPrice))}</Text>
+                <Text style={[styles.colTotal, discountStyle]}>{fmt(Number(item.unitPrice) * Number(item.quantity))}</Text>
               </View>
-            ))}
+              );
+            })}
           </View>
         ))}
 
