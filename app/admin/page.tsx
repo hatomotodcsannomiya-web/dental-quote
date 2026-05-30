@@ -177,7 +177,7 @@ function CategoriesTab({ categories, onReload }: { categories: CategoryWithTreat
           onChange={(e) => setNewName(e.target.value)}
           placeholder="新しいカテゴリ名"
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          onKeyDown={(e) => e.key === "Enter" && addCategory()}
+          onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && addCategory()}
         />
         <button
           type="button"
@@ -366,7 +366,7 @@ function SortableTreatmentRow(props: SortableRowProps) {
               onChange={(e) => setNewOptionForms((prev) => ({ ...prev, [t.id]: { ...prev[t.id] ?? { name: "", price: "0" }, name: e.target.value } }))}
               placeholder="オプション名"
               className="border border-gray-300 rounded px-2 py-1 text-xs flex-1 focus:outline-none focus:ring-1 focus:ring-purple-400"
-              onKeyDown={(e) => e.key === "Enter" && addOption(t.id)}
+              onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && addOption(t.id)}
             />
             <input
               type="number"
@@ -671,7 +671,7 @@ function DoctorsTab() {
             onChange={(e) => setNewName(e.target.value)}
             placeholder="例：田中 太郎"
             className="border border-gray-300 rounded px-3 py-2 text-sm flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
-            onKeyDown={(e) => e.key === "Enter" && addDoctor()}
+            onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && addDoctor()}
           />
           <button
             type="button"
@@ -697,7 +697,7 @@ function DoctorsTab() {
                   onChange={(e) => setEditName(e.target.value)}
                   className="border rounded px-2 py-1 text-sm flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
                   autoFocus
-                  onKeyDown={(e) => e.key === "Enter" && updateDoctor(doc.id)}
+                  onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && updateDoctor(doc.id)}
                 />
                 <button type="button" onClick={() => updateDoctor(doc.id)} className="text-xs text-blue-600 hover:text-blue-800">保存</button>
                 <button type="button" onClick={() => setEditingId(null)} className="text-xs text-gray-400 hover:text-gray-600">キャンセル</button>
@@ -804,7 +804,7 @@ function MaterialsTab() {
             onChange={(e) => setNewName(e.target.value)}
             placeholder="例：ジルコニア、メタルボンド、e.max"
             className="border border-gray-300 rounded px-3 py-2 text-sm flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
-            onKeyDown={(e) => e.key === "Enter" && addMaterial()}
+            onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && addMaterial()}
           />
           <button
             type="button"
@@ -829,7 +829,7 @@ function MaterialsTab() {
                   onChange={(e) => setEditName(e.target.value)}
                   className="border rounded px-2 py-1 text-sm flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
                   autoFocus
-                  onKeyDown={(e) => e.key === "Enter" && updateMaterial(mat.id)}
+                  onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && updateMaterial(mat.id)}
                 />
                 <button type="button" onClick={() => updateMaterial(mat.id)} className="text-xs text-blue-600 hover:text-blue-800">保存</button>
                 <button type="button" onClick={() => setEditingId(null)} className="text-xs text-gray-400 hover:text-gray-600">キャンセル</button>
@@ -928,7 +928,7 @@ function LabsTab() {
               onChange={(e) => setNewForm({ ...newForm, name: e.target.value })}
               placeholder="例：○○歯科技工所"
               className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
-              onKeyDown={(e) => e.key === "Enter" && addLab()}
+              onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && addLab()}
             />
           </div>
           <div>
@@ -1110,7 +1110,7 @@ function DiscountsTab() {
               onChange={(e) => setNewForm({ ...newForm, name: e.target.value })}
               placeholder="例：紹介割引、セット割引"
               className="border border-gray-300 rounded px-3 py-2 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
-              onKeyDown={(e) => e.key === "Enter" && addDiscount()}
+              onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && addDiscount()}
             />
           </div>
           <div className="w-32">
