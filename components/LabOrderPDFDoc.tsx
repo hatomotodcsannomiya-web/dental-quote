@@ -334,7 +334,7 @@ export default function LabOrderPDFDoc({
         {/* ── ヘッダー ── */}
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
-            <Text style={styles.clinicName}>はとも歯科さんのみや</Text>
+            <Text style={styles.clinicName}>三宮はともとデンタルクリニック</Text>
             <Text style={styles.clinicSub}>{CLINIC_POSTAL}　{CLINIC_ADDRESS}</Text>
             <Text style={styles.clinicSub}>{CLINIC_TEL}　担当医: {doctorName || "　"}</Text>
           </View>
