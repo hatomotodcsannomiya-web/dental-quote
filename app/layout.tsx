@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "自費診療 見積書作成",
-  description: "歯科医院 自費診療メニューから見積書を作成するシステム",
+  title: "自費診療 見積・技工管理",
+  description: "歯科医院 自費診療の見積書作成・技工指示書作成システム",
 };
 
 export default function RootLayout({
