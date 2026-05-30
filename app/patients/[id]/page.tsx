@@ -145,6 +145,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [materials, setMaterials] = useState<LabMaterial[]>([]);
   const [treatments, setTreatments] = useState<TreatmentMaster[]>([]);
+  const [labProsthetics, setLabProsthetics] = useState<string[]>([]);
   const [depositItemOptions, setDepositItemOptions] = useState<string[]>([]);
   const [labOrderForm, setLabOrderForm] = useState<{
     quote: Quote | null;
@@ -181,24 +182,31 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
   }
 
   async function loadMasters() {
-    const [labsRes, doctorsRes, matsRes, treatsRes, depositsRes] = await Promise.all([
+    const [labsRes, doctorsRes, matsRes, treatsRes, depositsRes, prostheticsRes] = await Promise.all([
       fetch("/api/labs"),
       fetch("/api/doctors"),
       fetch("/api/lab-materials"),
       fetch("/api/treatments"),
       fetch("/api/deposit-items"),
+      fetch("/api/lab-prosthetics"),
     ]);
     if (labsRes.ok) { const all: LabLaboratory[] = await labsRes.json(); setLabs(all.filter((l) => l.isActive)); }
     if (doctorsRes.ok) { const all: Doctor[] = await doctorsRes.json(); setDoctors(all.filter((d) => d.isActive)); }
     if (matsRes.ok) { const all: LabMaterial[] = await matsRes.json(); setMaterials(all.filter((m) => m.isActive)); }
     if (treatsRes.ok) {
-      const cats: { treatments: TreatmentMaster[] }[] = await treatsRes.json();
-      const flat = cats.flatMap((c) => c.treatments);
+      const cats: { name: string; treatments: TreatmentMaster[] }[] = await treatsRes.json();
+      // 補綴カテゴリのみ抽出
+      const prostheticCats = cats.filter((c) => c.name.includes("補綴") || c.name.includes("修復"));
+      const flat = prostheticCats.flatMap((c) => c.treatments);
       setTreatments(flat.filter((t: TreatmentMaster & { isActive?: boolean }) => t.isActive !== false));
     }
     if (depositsRes.ok) {
       const all: { name: string; isActive: boolean }[] = await depositsRes.json();
       setDepositItemOptions(all.filter((d) => d.isActive).map((d) => d.name));
+    }
+    if (prostheticsRes.ok) {
+      const all: { name: string; isActive: boolean }[] = await prostheticsRes.json();
+      setLabProsthetics(all.filter((p) => p.isActive).map((p) => p.name));
     }
   }
 
@@ -792,7 +800,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                         <span className="text-xs font-medium text-purple-700">#{i + 1}</span>
                         <button type="button" onClick={() => removeLabOrderItem(i)} disabled={labOrderForm.items.length <= 1} className="text-xs text-red-400 hover:text-red-600 disabled:opacity-30">削除</button>
                       </div>
-                      {/* 1行目: 部位 + 処置名 */}
+                      {/* 1行目: 部位 + 補綴装置 */}
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <label className="block text-xs text-gray-400 mb-0.5">部位</label>
@@ -805,21 +813,30 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-400 mb-0.5">処置名</label>
+                          <label className="block text-xs text-gray-400 mb-0.5">補綴装置</label>
                           <select
                             value={item.treatmentName}
                             onChange={(e) => updateLabOrderItem(i, "treatmentName", e.target.value)}
                             className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs w-full bg-white focus:outline-none focus:ring-1 focus:ring-purple-300"
                           >
-                            <option value="">選択 or 下で入力</option>
-                            {treatments.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+                            <option value="">選択してください</option>
+                            {treatments.length > 0 && (
+                              <optgroup label="補綴カテゴリ">
+                                {treatments.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+                              </optgroup>
+                            )}
+                            {labProsthetics.length > 0 && (
+                              <optgroup label="追加項目">
+                                {labProsthetics.map((name) => <option key={name} value={name}>{name}</option>)}
+                              </optgroup>
+                            )}
                           </select>
                         </div>
                       </div>
-                      {/* 処置名 自由入力フォールバック */}
-                      {!treatments.find((t) => t.name === item.treatmentName) && (
+                      {/* 補綴装置 自由入力フォールバック */}
+                      {item.treatmentName && !treatments.find((t) => t.name === item.treatmentName) && !labProsthetics.includes(item.treatmentName) && (
                         <div>
-                          <label className="block text-xs text-gray-400 mb-0.5">処置名（直接入力）</label>
+                          <label className="block text-xs text-gray-400 mb-0.5">補綴装置（直接入力）</label>
                           <input
                             type="text"
                             value={item.treatmentName}

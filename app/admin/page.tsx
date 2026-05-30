@@ -20,7 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import type { CategoryWithTreatments, TreatmentItem, TreatmentOption } from "@/lib/types";
 
-type AdminTab = "categories" | "treatments" | "labs" | "doctors" | "materials" | "deposits" | "discounts" | "password";
+type AdminTab = "categories" | "treatments" | "labs" | "doctors" | "materials" | "prosthetics" | "deposits" | "discounts" | "password";
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
@@ -105,6 +105,7 @@ export default function AdminPage() {
             { key: "labs", label: "技工所管理" },
             { key: "doctors", label: "担当医管理" },
             { key: "materials", label: "素材管理" },
+            { key: "prosthetics", label: "補綴装置管理" },
             { key: "deposits", label: "預かり品管理" },
             { key: "discounts", label: "割引管理" },
             { key: "password", label: "パスワード変更" },
@@ -129,6 +130,7 @@ export default function AdminPage() {
             {tab === "labs" && <LabsTab />}
             {tab === "doctors" && <DoctorsTab />}
             {tab === "materials" && <MaterialsTab />}
+            {tab === "prosthetics" && <LabProstheticsTab />}
             {tab === "deposits" && <DepositItemsTab />}
             {tab === "discounts" && <DiscountsTab />}
             {tab === "password" && <PasswordTab />}
@@ -1091,6 +1093,182 @@ function LabsTab() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+interface LabProstheticItem {
+  id: number;
+  name: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+function SortableLabProstheticRow({ item, editingId, editName, setEditName, setEditingId, updateItem, toggleActive, deleteItem }: {
+  item: LabProstheticItem;
+  editingId: number | null;
+  editName: string;
+  setEditName: (v: string) => void;
+  setEditingId: (v: number | null) => void;
+  updateItem: (id: number) => void;
+  toggleActive: (item: LabProstheticItem) => void;
+  deleteItem: (id: number) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`rounded-lg border px-4 py-3 flex items-center gap-3 ${isDragging ? "shadow-lg z-10 bg-white" : !item.isActive ? "opacity-50 bg-gray-50 border-gray-100" : "bg-white border-gray-200"}`}
+    >
+      {editingId !== item.id && (
+        <button {...attributes} {...listeners} type="button" className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none shrink-0" tabIndex={-1}>
+          <GripIcon />
+        </button>
+      )}
+      {editingId === item.id ? (
+        <>
+          <input
+            type="text"
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            className="border rounded px-2 py-1 text-sm flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            autoFocus
+            onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && updateItem(item.id)}
+          />
+          <button type="button" onClick={() => updateItem(item.id)} className="text-xs text-blue-600 hover:text-blue-800">保存</button>
+          <button type="button" onClick={() => setEditingId(null)} className="text-xs text-gray-400 hover:text-gray-600">キャンセル</button>
+        </>
+      ) : (
+        <>
+          <span className="flex-1 text-sm font-medium text-gray-800">{item.name}</span>
+          {!item.isActive && <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">無効</span>}
+          <button type="button" onClick={() => { setEditingId(item.id); setEditName(item.name); }} className="text-xs text-blue-500 hover:text-blue-700">編集</button>
+          <button type="button" onClick={() => toggleActive(item)} className={`text-xs ${item.isActive ? "text-orange-400 hover:text-orange-600" : "text-green-500 hover:text-green-700"}`}>
+            {item.isActive ? "無効化" : "有効化"}
+          </button>
+          <button type="button" onClick={() => deleteItem(item.id)} className="text-xs text-red-400 hover:text-red-600">削除</button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function LabProstheticsTab() {
+  const [items, setItems] = useState<LabProstheticItem[]>([]);
+  const [newName, setNewName] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+
+  useEffect(() => { load(); }, []);
+
+  async function load() {
+    const res = await fetch("/api/lab-prosthetics");
+    setItems(await res.json());
+  }
+
+  async function addItem() {
+    if (!newName.trim()) return;
+    setSaving(true);
+    await fetch("/api/lab-prosthetics", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newName.trim() }),
+    });
+    setNewName("");
+    await load();
+    setSaving(false);
+  }
+
+  async function updateItem(id: number) {
+    if (!editName.trim()) return;
+    await fetch(`/api/lab-prosthetics/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: editName }),
+    });
+    setEditingId(null);
+    load();
+  }
+
+  async function toggleActive(item: LabProstheticItem) {
+    await fetch(`/api/lab-prosthetics/${item.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive: !item.isActive }),
+    });
+    load();
+  }
+
+  async function deleteItem(id: number) {
+    if (!confirm("この補綴装置項目を削除しますか？")) return;
+    await fetch(`/api/lab-prosthetics/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = items.findIndex((m) => m.id === Number(active.id));
+    const newIdx = items.findIndex((m) => m.id === Number(over.id));
+    if (oldIdx === -1 || newIdx === -1) return;
+    const reordered = arrayMove(items, oldIdx, newIdx);
+    setItems(reordered);
+    await fetch("/api/lab-prosthetics/reorder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(reordered.map((m, i) => ({ id: m.id, sortOrder: i }))),
+    });
+  }
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-5">
+      <h2 className="text-base font-semibold text-gray-800 mb-1">補綴装置管理</h2>
+      <p className="text-xs text-gray-400 mb-4">技工指示書の「補綴装置」プルダウンに、補綴カテゴリの治療メニューに加えて表示される追加項目を管理します。</p>
+
+      <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
+        <h3 className="text-sm font-semibold text-blue-800 mb-3">新規追加</h3>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="例：オールセラミッククラウン、ブリッジ"
+            className="border border-gray-300 rounded px-3 py-2 text-sm flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && addItem()}
+          />
+          <button type="button" onClick={addItem} disabled={saving || !newName.trim()}
+            className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
+            追加する
+          </button>
+        </div>
+      </div>
+
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={items.map((m) => m.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-2">
+            {items.length === 0 && <p className="text-sm text-gray-400">追加項目が登録されていません（補綴カテゴリの治療メニューは自動で表示されます）</p>}
+            {items.map((item) => (
+              <SortableLabProstheticRow
+                key={item.id}
+                item={item}
+                editingId={editingId}
+                editName={editName}
+                setEditName={setEditName}
+                setEditingId={setEditingId}
+                updateItem={updateItem}
+                toggleActive={toggleActive}
+                deleteItem={deleteItem}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
     </div>
   );
 }
