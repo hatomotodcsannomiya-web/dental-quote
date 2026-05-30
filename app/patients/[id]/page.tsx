@@ -94,25 +94,33 @@ interface SavedLabOrder {
 
 const TECH_EXCLUDE_KEYWORDS = ["仮歯", "麻酔", "抜歯", "消毒", "レントゲン", "CT", "相談", "検査", "診断", "クリーニング", "ホワイトニング", "矯正装置", "インビザライン", "マウスピース", "シーラント"];
 
-const QUADRANTS = [
-  { key: "右上", teeth: [8,7,6,5,4,3,2,1] as const },
-  { key: "左上", teeth: [1,2,3,4,5,6,7,8] as const },
-  { key: "右下", teeth: [8,7,6,5,4,3,2,1] as const },
-  { key: "左下", teeth: [1,2,3,4,5,6,7,8] as const },
-] as const;
-
-const TOOTH_ORDER = ["右上", "左上", "左下", "右下"] as const;
+// 右上n→`n┘` 左上n→`└n` 右下n→`n┐` 左下n→`┌n`
+const UPPER_RIGHT = [8,7,6,5,4,3,2,1];
+const UPPER_LEFT  = [1,2,3,4,5,6,7,8];
+const LOWER_RIGHT = [8,7,6,5,4,3,2,1];
+const LOWER_LEFT  = [1,2,3,4,5,6,7,8];
 
 function parseTeeth(value: string): string[] {
   return value ? value.split("・").filter(Boolean) : [];
 }
 
+function quadrantOrder(label: string): number {
+  if (label.endsWith("┘")) return 0;
+  if (label.startsWith("└")) return 1;
+  if (label.endsWith("┐")) return 2;
+  if (label.startsWith("┌")) return 3;
+  return 4;
+}
+
+function toothNum(label: string): number {
+  return parseInt(label.replace(/[┘└┐┌]/g, "")) || 0;
+}
+
 function sortTeeth(teeth: string[]): string[] {
   return [...teeth].sort((a, b) => {
-    const qa = TOOTH_ORDER.findIndex((q) => a.startsWith(q));
-    const qb = TOOTH_ORDER.findIndex((q) => b.startsWith(q));
-    if (qa !== qb) return qa - qb;
-    return parseInt(a.slice(2)) - parseInt(b.slice(2));
+    const qd = quadrantOrder(a) - quadrantOrder(b);
+    if (qd !== 0) return qd;
+    return toothNum(a) - toothNum(b);
   });
 }
 
@@ -134,20 +142,20 @@ function ToothChartSelector({ value, onChange }: { value: string; onChange: (v: 
     <div className="border border-gray-200 rounded-xl p-2 bg-white mt-1 select-none">
       <div className="text-[10px] text-gray-400 text-center mb-1.5">タップで選択（複数可）</div>
       {/* 上段ラベル */}
-      <div className="flex text-[10px] text-gray-500 mb-0.5 pr-0.5">
+      <div className="flex text-[10px] text-gray-500 mb-0.5">
         <div className="flex-1 text-center">右上</div>
         <div className="w-[2px] mx-0.5" />
         <div className="flex-1 text-center">左上</div>
       </div>
       {/* 上顎歯列 */}
       <div className="flex items-center justify-center mb-0.5">
-        {QUADRANTS[0].teeth.map((n) => {
-          const label = `右上${n}`;
+        {UPPER_RIGHT.map((n) => {
+          const label = `${n}┘`;
           return <button key={label} type="button" onClick={() => toggle(label)} className={`${btnBase} mx-0.5 ${selected.includes(label) ? btnOn : btnOff}`}>{n}</button>;
         })}
         <div className="w-[2px] h-7 bg-gray-300 mx-1 rounded" />
-        {QUADRANTS[1].teeth.map((n) => {
-          const label = `左上${n}`;
+        {UPPER_LEFT.map((n) => {
+          const label = `└${n}`;
           return <button key={label} type="button" onClick={() => toggle(label)} className={`${btnBase} mx-0.5 ${selected.includes(label) ? btnOn : btnOff}`}>{n}</button>;
         })}
       </div>
@@ -155,13 +163,13 @@ function ToothChartSelector({ value, onChange }: { value: string; onChange: (v: 
       <div className="h-[2px] bg-gray-300 rounded my-0.5 mx-1" />
       {/* 下顎歯列 */}
       <div className="flex items-center justify-center mt-0.5">
-        {QUADRANTS[2].teeth.map((n) => {
-          const label = `右下${n}`;
+        {LOWER_RIGHT.map((n) => {
+          const label = `${n}┐`;
           return <button key={label} type="button" onClick={() => toggle(label)} className={`${btnBase} mx-0.5 ${selected.includes(label) ? btnOn : btnOff}`}>{n}</button>;
         })}
         <div className="w-[2px] h-7 bg-gray-300 mx-1 rounded" />
-        {QUADRANTS[3].teeth.map((n) => {
-          const label = `左下${n}`;
+        {LOWER_LEFT.map((n) => {
+          const label = `┌${n}`;
           return <button key={label} type="button" onClick={() => toggle(label)} className={`${btnBase} mx-0.5 ${selected.includes(label) ? btnOn : btnOff}`}>{n}</button>;
         })}
       </div>
