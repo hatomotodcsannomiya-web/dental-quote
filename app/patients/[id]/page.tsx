@@ -92,17 +92,6 @@ interface SavedLabOrder {
   createdAt: string;
 }
 
-const DEPOSIT_ITEM_OPTIONS = [
-  "印象体",
-  "石膏模型（上顎）",
-  "石膏模型（下顎）",
-  "バイト（咬合採得）",
-  "咬合器装着模型",
-  "写真（口腔内）",
-  "X線写真",
-  "旧補綴物",
-];
-
 const TECH_EXCLUDE_KEYWORDS = ["仮歯", "麻酔", "抜歯", "消毒", "レントゲン", "CT", "相談", "検査", "診断", "クリーニング", "ホワイトニング", "矯正装置", "インビザライン", "マウスピース", "シーラント"];
 
 function filterLabItems(items: QuoteItem[]): LabOrderItemForm[] {
@@ -156,6 +145,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [materials, setMaterials] = useState<LabMaterial[]>([]);
   const [treatments, setTreatments] = useState<TreatmentMaster[]>([]);
+  const [depositItemOptions, setDepositItemOptions] = useState<string[]>([]);
   const [labOrderForm, setLabOrderForm] = useState<{
     quote: Quote | null;
     laboratoryId: number | null;
@@ -191,11 +181,12 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
   }
 
   async function loadMasters() {
-    const [labsRes, doctorsRes, matsRes, treatsRes] = await Promise.all([
+    const [labsRes, doctorsRes, matsRes, treatsRes, depositsRes] = await Promise.all([
       fetch("/api/labs"),
       fetch("/api/doctors"),
       fetch("/api/lab-materials"),
       fetch("/api/treatments"),
+      fetch("/api/deposit-items"),
     ]);
     if (labsRes.ok) { const all: LabLaboratory[] = await labsRes.json(); setLabs(all.filter((l) => l.isActive)); }
     if (doctorsRes.ok) { const all: Doctor[] = await doctorsRes.json(); setDoctors(all.filter((d) => d.isActive)); }
@@ -204,6 +195,10 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
       const cats: { treatments: TreatmentMaster[] }[] = await treatsRes.json();
       const flat = cats.flatMap((c) => c.treatments);
       setTreatments(flat.filter((t: TreatmentMaster & { isActive?: boolean }) => t.isActive !== false));
+    }
+    if (depositsRes.ok) {
+      const all: { name: string; isActive: boolean }[] = await depositsRes.json();
+      setDepositItemOptions(all.filter((d) => d.isActive).map((d) => d.name));
     }
   }
 
@@ -890,7 +885,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
               <div>
                 <p className="text-xs font-semibold text-gray-600 mb-2">預かり品</p>
                 <div className="grid grid-cols-2 gap-1.5">
-                  {DEPOSIT_ITEM_OPTIONS.map((item) => {
+                  {depositItemOptions.map((item) => {
                     const checked = labOrderForm.depositItems.includes(item);
                     return (
                       <label key={item} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer text-xs transition-colors ${checked ? "bg-purple-50 border-purple-400 text-purple-800 font-medium" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
