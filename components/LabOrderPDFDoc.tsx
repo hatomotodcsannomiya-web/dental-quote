@@ -13,10 +13,10 @@ const CLINIC_TEL     = "Tel: 078-381-9085";
 const styles = StyleSheet.create({
   page: {
     fontFamily: FONT,
-    paddingTop: 24,
-    paddingBottom: 36,
-    paddingHorizontal: 28,
-    fontSize: 9,
+    paddingTop: 16,
+    paddingBottom: 26,
+    paddingHorizontal: 20,
+    fontSize: 8,
     color: "#111",
     backgroundColor: "#fff",
   },
@@ -25,19 +25,19 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    marginBottom: 5,
+    marginBottom: 4,
   },
   headerLeft: {
     flex: 1,
   },
   clinicName: {
-    fontSize: 10,
+    fontSize: 8.5,
     fontWeight: "bold",
     color: NAVY,
     marginBottom: 1,
   },
   clinicSub: {
-    fontSize: 7.5,
+    fontSize: 7,
     color: "#555",
     lineHeight: 1.5,
   },
@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   docTitle: {
-    fontSize: 22,
+    fontSize: 17,
     fontWeight: "bold",
     color: NAVY,
     letterSpacing: 4,
@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   issueMeta: {
-    fontSize: 8,
+    fontSize: 7,
     color: "#555",
     marginBottom: 2,
   },
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   thickRule: {
     borderBottomWidth: 2,
     borderBottomColor: NAVY,
-    marginBottom: 7,
+    marginBottom: 5,
   },
 
   /* ── 宛先バー ── */
@@ -76,38 +76,38 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     borderWidth: 1,
     borderColor: BORDER,
-    marginBottom: 7,
-    padding: "5 10",
+    marginBottom: 5,
+    padding: "4 8",
     backgroundColor: "#f5f8ff",
   },
   addressLabel: {
-    fontSize: 8,
+    fontSize: 7,
     color: "#555",
-    width: 48,
+    width: 40,
     paddingTop: 1,
   },
   addressMain: {
     flex: 1,
   },
   addressValue: {
-    fontSize: 11,
+    fontSize: 9.5,
     fontWeight: "bold",
   },
   addressSub: {
-    fontSize: 7.5,
+    fontSize: 7,
     color: "#555",
     marginTop: 1,
   },
   addressSuffix: {
-    fontSize: 9,
+    fontSize: 8,
     color: "#444",
-    paddingTop: 3,
+    paddingTop: 2,
   },
 
   /* ── 患者情報グリッド ── */
   infoGrid: {
     flexDirection: "row",
-    marginBottom: 7,
+    marginBottom: 5,
     borderWidth: 1,
     borderColor: BORDER,
   },
@@ -123,37 +123,37 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderBottomWidth: 0.5,
     borderBottomColor: LINE,
-    minHeight: 20,
+    minHeight: 17,
   },
   infoRowLast: {
     flexDirection: "row",
-    minHeight: 20,
+    minHeight: 17,
   },
   infoLabel: {
-    width: 64,
-    fontSize: 8,
+    width: 54,
+    fontSize: 7.5,
     color: "#fff",
     backgroundColor: NAVY,
-    padding: "4 6",
+    padding: "3 5",
     fontWeight: "bold",
   },
   infoValue: {
     flex: 1,
-    fontSize: 9,
-    padding: "4 6",
+    fontSize: 8,
+    padding: "3 5",
   },
   infoBold: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "bold",
   },
 
   /* ── 指示内容テーブル ── */
   sectionHeader: {
     backgroundColor: NAVY,
-    padding: "4 8",
+    padding: "3 7",
   },
   sectionHeaderText: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: "bold",
     color: "#fff",
     letterSpacing: 1,
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: BORDER,
     borderTopWidth: 0,
-    marginBottom: 7,
+    marginBottom: 5,
   },
   tableHead: {
     flexDirection: "row",
@@ -174,34 +174,34 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderBottomWidth: 0.5,
     borderBottomColor: LINE,
-    minHeight: 20,
+    minHeight: 16,
   },
   tableRowAlt: {
     flexDirection: "row",
     borderBottomWidth: 0.5,
     borderBottomColor: LINE,
     backgroundColor: "#f7faff",
-    minHeight: 20,
+    minHeight: 16,
   },
   tableRowLast: {
     flexDirection: "row",
-    minHeight: 20,
+    minHeight: 16,
   },
   th: {
-    fontSize: 8,
+    fontSize: 7.5,
     fontWeight: "bold",
     color: NAVY,
-    padding: "4 5",
+    padding: "3 4",
     textAlign: "center",
   },
   td: {
-    fontSize: 9,
-    padding: "4 5",
+    fontSize: 8,
+    padding: "3 4",
     textAlign: "center",
   },
   tdLeft: {
-    fontSize: 9,
-    padding: "4 6",
+    fontSize: 8,
+    padding: "3 5",
   },
   colNo:        { width: "5%",  borderRightWidth: 0.5, borderRightColor: LINE },
   colTooth:     { width: "15%", borderRightWidth: 0.5, borderRightColor: LINE },
@@ -215,58 +215,58 @@ const styles = StyleSheet.create({
   depositSection: {
     borderWidth: 1,
     borderColor: BORDER,
-    marginBottom: 7,
+    marginBottom: 5,
   },
   depositLabel: {
-    fontSize: 8,
+    fontSize: 7.5,
     fontWeight: "bold",
     color: "#fff",
     backgroundColor: NAVY,
-    padding: "3 8",
+    padding: "3 7",
   },
   depositBody: {
     flexDirection: "row",
     flexWrap: "wrap",
-    padding: "5 8",
-    gap: 6,
+    padding: "4 7",
+    gap: 5,
   },
   depositChip: {
     borderWidth: 1,
     borderColor: NAVY,
     borderRadius: 3,
-    padding: "2 8",
+    padding: "2 6",
     backgroundColor: LIGHT_BLUE,
   },
   depositChipText: {
-    fontSize: 8.5,
+    fontSize: 8,
     color: NAVY,
     fontWeight: "bold",
   },
   depositEmpty: {
-    fontSize: 8.5,
+    fontSize: 8,
     color: "#aaa",
-    padding: "4 8",
+    padding: "3 7",
   },
 
   /* ── 特記事項 ── */
   noteSection: {
     borderWidth: 1,
     borderColor: BORDER,
-    marginBottom: 7,
+    marginBottom: 5,
   },
   noteLabel: {
-    fontSize: 8,
+    fontSize: 7.5,
     fontWeight: "bold",
     color: "#fff",
     backgroundColor: NAVY,
-    padding: "3 8",
+    padding: "3 7",
   },
   noteBody: {
-    padding: "6 10",
-    minHeight: 52,
+    padding: "5 8",
+    minHeight: 40,
   },
   noteText: {
-    fontSize: 9,
+    fontSize: 8,
     lineHeight: 1.6,
     color: "#222",
   },
@@ -274,17 +274,17 @@ const styles = StyleSheet.create({
   /* ── フッター ── */
   footer: {
     position: "absolute",
-    bottom: 14,
-    left: 28,
-    right: 28,
+    bottom: 10,
+    left: 20,
+    right: 20,
     flexDirection: "row",
     justifyContent: "space-between",
     borderTopWidth: 0.5,
     borderTopColor: LINE,
-    paddingTop: 4,
+    paddingTop: 3,
   },
   footerText: {
-    fontSize: 7,
+    fontSize: 6.5,
     color: "#999",
   },
 });
@@ -329,7 +329,7 @@ export default function LabOrderPDFDoc({
 }: Props) {
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
+      <Page size="A5" style={styles.page}>
 
         {/* ── ヘッダー ── */}
         <View style={styles.headerRow}>
