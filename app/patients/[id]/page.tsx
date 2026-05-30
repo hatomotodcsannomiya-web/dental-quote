@@ -120,7 +120,10 @@ function sortTeeth(teeth: string[]): string[] {
   return [...teeth].sort((a, b) => {
     const qd = quadrantOrder(a) - quadrantOrder(b);
     if (qd !== 0) return qd;
-    return toothNum(a) - toothNum(b);
+    const na = toothNum(a), nb = toothNum(b);
+    // 右上(┘)・右下(┐)は中心から遠い順（8→1=降順）、左上(└)・左下(┌)は昇順
+    const isRight = a.endsWith("┘") || a.endsWith("┐");
+    return isRight ? nb - na : na - nb;
   });
 }
 
@@ -180,8 +183,8 @@ function ToothChartSelector({ value, onChange }: { value: string; onChange: (v: 
         <div className="flex-1 text-center">左下</div>
       </div>
       {/* 選択中表示 + クリア */}
-      <div className="flex items-center justify-between mt-1.5 min-h-5">
-        <span className="text-xs text-blue-700 font-medium truncate">
+      <div className="flex items-start justify-between mt-1.5 min-h-5 gap-1">
+        <span className="text-xs text-blue-700 font-medium break-all leading-relaxed">
           {selected.length > 0 ? selected.join("・") : <span className="text-gray-300">未選択</span>}
         </span>
         {selected.length > 0 && (
@@ -913,7 +916,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                         </div>
                         {/* 選択中の表示 */}
                         <div
-                          className="text-xs px-2 py-1.5 rounded-lg border border-gray-200 bg-white min-h-[30px] cursor-pointer"
+                          className="text-xs px-2 py-1.5 rounded-lg border border-gray-200 bg-white min-h-[30px] cursor-pointer break-all leading-relaxed"
                           onClick={() => setOpenToothSelectorIdx(openToothSelectorIdx === i ? null : i)}
                         >
                           {item.toothLabel
