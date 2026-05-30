@@ -46,6 +46,8 @@ interface SavedWarranty {
 interface LabLaboratory {
   id: number;
   name: string;
+  address: string | null;
+  tel: string | null;
   isActive: boolean;
 }
 
@@ -85,9 +87,21 @@ interface SavedLabOrder {
   dueDate: string;
   note: string | null;
   items: string;
-  laboratory: { name: string } | null;
+  depositItems: string;
+  laboratory: { name: string; address: string | null; tel: string | null } | null;
   createdAt: string;
 }
+
+const DEPOSIT_ITEM_OPTIONS = [
+  "印象体",
+  "石膏模型（上顎）",
+  "石膏模型（下顎）",
+  "バイト（咬合採得）",
+  "咬合器装着模型",
+  "写真（口腔内）",
+  "X線写真",
+  "旧補綴物",
+];
 
 const TECH_EXCLUDE_KEYWORDS = ["仮歯", "麻酔", "抜歯", "消毒", "レントゲン", "CT", "相談", "検査", "診断", "クリーニング", "ホワイトニング", "矯正装置", "インビザライン", "マウスピース", "シーラント"];
 
@@ -150,6 +164,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     dueDate: string;
     note: string;
     items: LabOrderItemForm[];
+    depositItems: string[];
   } | null>(null);
   const [labOrderSubmitting, setLabOrderSubmitting] = useState(false);
   const [labOrderPdfLoadingId, setLabOrderPdfLoadingId] = useState<number | null>(null);
@@ -316,6 +331,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
       dueDate: "",
       note: "",
       items: filterLabItems(quote.items),
+      depositItems: [],
     });
   }
 
@@ -330,6 +346,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
       dueDate: "",
       note: "",
       items: [{ toothLabel: "", treatmentName: "", material: "", shade: "", quantity: 1, itemNote: "" }],
+      depositItems: [],
     });
   }
 
@@ -378,6 +395,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
           dueDate: labOrderForm.dueDate,
           note: labOrderForm.note,
           items: labOrderForm.items,
+          depositItems: labOrderForm.depositItems,
         }),
       });
       const saved = await saveRes.json();
@@ -389,11 +407,14 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
           patientName: patient.name,
           patientCode: patient.code,
           laboratoryName: lab?.name ?? "",
+          laboratoryAddress: lab?.address ?? "",
+          laboratoryTel: lab?.tel ?? "",
           doctorName,
           orderDate: labOrderForm.orderDate,
           dueDate: labOrderForm.dueDate,
           note: labOrderForm.note,
           items: labOrderForm.items,
+          depositItems: labOrderForm.depositItems,
           createdAt,
         }),
       });
@@ -411,6 +432,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     setLabOrderPdfLoadingId(order.id);
     try {
       const items = JSON.parse(order.items) as LabOrderItemForm[];
+      const depositItems = JSON.parse(order.depositItems || "[]") as string[];
       const createdAt = new Date(order.createdAt).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
       const res = await fetch("/api/lab-order-pdf", {
         method: "POST",
@@ -419,11 +441,14 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
           patientName: order.patientName,
           patientCode: order.patientCode,
           laboratoryName: order.laboratory?.name ?? "",
+          laboratoryAddress: order.laboratory?.address ?? "",
+          laboratoryTel: order.laboratory?.tel ?? "",
           doctorName: order.doctorName,
           orderDate: order.orderDate,
           dueDate: order.dueDate,
           note: order.note ?? "",
           items,
+          depositItems,
           createdAt,
         }),
       });
@@ -858,6 +883,33 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                       )}
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* 預かり品 */}
+              <div>
+                <p className="text-xs font-semibold text-gray-600 mb-2">預かり品</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {DEPOSIT_ITEM_OPTIONS.map((item) => {
+                    const checked = labOrderForm.depositItems.includes(item);
+                    return (
+                      <label key={item} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer text-xs transition-colors ${checked ? "bg-purple-50 border-purple-400 text-purple-800 font-medium" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => setLabOrderForm((p) => {
+                            if (!p) return null;
+                            const next = checked
+                              ? p.depositItems.filter((d) => d !== item)
+                              : [...p.depositItems, item];
+                            return { ...p, depositItems: next };
+                          })}
+                          className="accent-purple-600"
+                        />
+                        {item}
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
 

@@ -29,21 +29,27 @@ export async function POST(req: NextRequest) {
       patientName,
       patientCode,
       laboratoryName,
+      laboratoryAddress,
+      laboratoryTel,
       doctorName,
       orderDate,
       dueDate,
       note,
       items,
+      depositItems,
       createdAt,
     } = await req.json() as {
       patientName: string;
       patientCode: string;
       laboratoryName: string;
+      laboratoryAddress?: string;
+      laboratoryTel?: string;
       doctorName: string;
       orderDate: string;
       dueDate: string;
       note: string;
       items: LabOrderItem[];
+      depositItems?: string[];
       createdAt: string;
     };
 
@@ -52,11 +58,14 @@ export async function POST(req: NextRequest) {
       patientName,
       patientCode,
       laboratoryName,
+      laboratoryAddress: laboratoryAddress ?? "",
+      laboratoryTel: laboratoryTel ?? "",
       doctorName,
       orderDate,
       dueDate,
       note,
       items,
+      depositItems: depositItems ?? [],
       createdAt,
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

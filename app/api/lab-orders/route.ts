@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
     dueDate,
     note,
     items,
+    depositItems,
   } = await req.json();
 
   const order = await prisma.labOrder.create({
@@ -39,6 +40,7 @@ export async function POST(req: NextRequest) {
       dueDate,
       note: note?.trim() || null,
       items: JSON.stringify(items),
+      depositItems: JSON.stringify(depositItems ?? []),
     },
     include: { laboratory: true },
   });

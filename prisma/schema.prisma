@@ -80,6 +80,7 @@ model LabOrder {
   dueDate      String
   note         String?
   items        String
+  depositItems String         @default("[]")
   createdAt    DateTime       @default(now())
 }
 

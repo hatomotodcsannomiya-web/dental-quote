@@ -6,12 +6,16 @@ const LIGHT_BLUE = "#dbe8f8";
 const BORDER = "#1a3560";
 const LINE = "#aab8cc";
 
+const CLINIC_POSTAL  = "〒650-0021";
+const CLINIC_ADDRESS = "兵庫県神戸市中央区三宮町１−６−１１　三宮本通ビル2階";
+const CLINIC_TEL     = "Tel: 078-381-9085";
+
 const styles = StyleSheet.create({
   page: {
     fontFamily: FONT,
-    paddingTop: 28,
-    paddingBottom: 40,
-    paddingHorizontal: 30,
+    paddingTop: 24,
+    paddingBottom: 36,
+    paddingHorizontal: 28,
     fontSize: 9,
     color: "#111",
     backgroundColor: "#fff",
@@ -20,8 +24,8 @@ const styles = StyleSheet.create({
   /* ── ヘッダー ── */
   headerRow: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    marginBottom: 6,
+    alignItems: "flex-start",
+    marginBottom: 5,
   },
   headerLeft: {
     flex: 1,
@@ -30,15 +34,17 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "bold",
     color: NAVY,
-    marginBottom: 2,
+    marginBottom: 1,
   },
   clinicSub: {
-    fontSize: 8,
+    fontSize: 7.5,
     color: "#555",
+    lineHeight: 1.5,
   },
   headerCenter: {
     flex: 1,
     alignItems: "center",
+    paddingTop: 2,
   },
   docTitle: {
     fontSize: 22,
@@ -49,6 +55,7 @@ const styles = StyleSheet.create({
   headerRight: {
     flex: 1,
     alignItems: "flex-end",
+    paddingTop: 4,
   },
   issueMeta: {
     fontSize: 8,
@@ -56,25 +63,20 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
 
-  /* ── 太い区切り線 ── */
+  /* ── 区切り線 ── */
   thickRule: {
     borderBottomWidth: 2,
     borderBottomColor: NAVY,
-    marginBottom: 8,
-  },
-  thinRule: {
-    borderBottomWidth: 0.5,
-    borderBottomColor: LINE,
-    marginBottom: 8,
+    marginBottom: 7,
   },
 
   /* ── 宛先バー ── */
   addressBar: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     borderWidth: 1,
     borderColor: BORDER,
-    marginBottom: 8,
+    marginBottom: 7,
     padding: "5 10",
     backgroundColor: "#f5f8ff",
   },
@@ -82,21 +84,30 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: "#555",
     width: 48,
+    paddingTop: 1,
+  },
+  addressMain: {
+    flex: 1,
   },
   addressValue: {
     fontSize: 11,
     fontWeight: "bold",
-    flex: 1,
+  },
+  addressSub: {
+    fontSize: 7.5,
+    color: "#555",
+    marginTop: 1,
   },
   addressSuffix: {
     fontSize: 9,
     color: "#444",
+    paddingTop: 3,
   },
 
-  /* ── 情報グリッド（2列） ── */
+  /* ── 患者情報グリッド ── */
   infoGrid: {
     flexDirection: "row",
-    marginBottom: 8,
+    marginBottom: 7,
     borderWidth: 1,
     borderColor: BORDER,
   },
@@ -136,49 +147,10 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
-  /* ── 日程ボックス ── */
-  datesRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 8,
-  },
-  dateBox: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: BORDER,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  dateLabel: {
-    fontSize: 8,
-    fontWeight: "bold",
-    color: "#fff",
-    backgroundColor: NAVY,
-    padding: "5 8",
-    width: 72,
-    textAlign: "center",
-  },
-  dateValue: {
-    fontSize: 10,
-    fontWeight: "bold",
-    padding: "4 10",
-    flex: 1,
-    textAlign: "center",
-  },
-  dueDateValue: {
-    fontSize: 10,
-    fontWeight: "bold",
-    padding: "4 10",
-    flex: 1,
-    textAlign: "center",
-    color: "#c00",
-  },
-
   /* ── 指示内容テーブル ── */
   sectionHeader: {
     backgroundColor: NAVY,
     padding: "4 8",
-    marginBottom: 0,
   },
   sectionHeaderText: {
     fontSize: 9,
@@ -190,7 +162,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: BORDER,
     borderTopWidth: 0,
-    marginBottom: 8,
+    marginBottom: 7,
   },
   tableHead: {
     flexDirection: "row",
@@ -202,18 +174,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderBottomWidth: 0.5,
     borderBottomColor: LINE,
-    minHeight: 22,
+    minHeight: 20,
   },
   tableRowAlt: {
     flexDirection: "row",
     borderBottomWidth: 0.5,
     borderBottomColor: LINE,
     backgroundColor: "#f7faff",
-    minHeight: 22,
+    minHeight: 20,
   },
   tableRowLast: {
     flexDirection: "row",
-    minHeight: 22,
+    minHeight: 20,
   },
   th: {
     fontSize: 8,
@@ -232,18 +204,55 @@ const styles = StyleSheet.create({
     padding: "4 6",
   },
   colNo:        { width: "5%",  borderRightWidth: 0.5, borderRightColor: LINE },
-  colTooth:     { width: "16%", borderRightWidth: 0.5, borderRightColor: LINE },
+  colTooth:     { width: "15%", borderRightWidth: 0.5, borderRightColor: LINE },
   colTreatment: { width: "33%", borderRightWidth: 0.5, borderRightColor: LINE },
   colMaterial:  { width: "22%", borderRightWidth: 0.5, borderRightColor: LINE },
-  colShade:     { width: "12%", borderRightWidth: 0.5, borderRightColor: LINE },
+  colShade:     { width: "13%", borderRightWidth: 0.5, borderRightColor: LINE },
   colQty:       { width: "8%",  borderRightWidth: 0.5, borderRightColor: LINE },
   colNote:      { width: "4%" },
+
+  /* ── 預かり品 ── */
+  depositSection: {
+    borderWidth: 1,
+    borderColor: BORDER,
+    marginBottom: 7,
+  },
+  depositLabel: {
+    fontSize: 8,
+    fontWeight: "bold",
+    color: "#fff",
+    backgroundColor: NAVY,
+    padding: "3 8",
+  },
+  depositBody: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    padding: "5 8",
+    gap: 6,
+  },
+  depositChip: {
+    borderWidth: 1,
+    borderColor: NAVY,
+    borderRadius: 3,
+    padding: "2 8",
+    backgroundColor: LIGHT_BLUE,
+  },
+  depositChipText: {
+    fontSize: 8.5,
+    color: NAVY,
+    fontWeight: "bold",
+  },
+  depositEmpty: {
+    fontSize: 8.5,
+    color: "#aaa",
+    padding: "4 8",
+  },
 
   /* ── 特記事項 ── */
   noteSection: {
     borderWidth: 1,
     borderColor: BORDER,
-    marginBottom: 12,
+    marginBottom: 7,
   },
   noteLabel: {
     fontSize: 8,
@@ -254,48 +263,20 @@ const styles = StyleSheet.create({
   },
   noteBody: {
     padding: "6 10",
-    minHeight: 56,
+    minHeight: 52,
   },
   noteText: {
     fontSize: 9,
     lineHeight: 1.6,
     color: "#222",
   },
-  notePlaceholder: {
-    fontSize: 9,
-    color: "#aaa",
-  },
-
-  /* ── 署名欄 ── */
-  signRow: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 16,
-  },
-  signBox: {
-    borderWidth: 1,
-    borderColor: BORDER,
-    width: 140,
-  },
-  signLabel: {
-    fontSize: 8,
-    color: "#fff",
-    backgroundColor: NAVY,
-    padding: "3 8",
-    textAlign: "center",
-  },
-  signSpace: {
-    height: 36,
-    padding: "4 8",
-    fontSize: 9,
-  },
 
   /* ── フッター ── */
   footer: {
     position: "absolute",
-    bottom: 16,
-    left: 30,
-    right: 30,
+    bottom: 14,
+    left: 28,
+    right: 28,
     flexDirection: "row",
     justifyContent: "space-between",
     borderTopWidth: 0.5,
@@ -321,26 +302,30 @@ interface Props {
   patientName: string;
   patientCode: string;
   laboratoryName: string;
+  laboratoryAddress?: string;
+  laboratoryTel?: string;
   doctorName: string;
   orderDate: string;
   dueDate: string;
   note: string;
   items: LabOrderItem[];
+  depositItems?: string[];
   createdAt: string;
-  clinicName?: string;
 }
 
 export default function LabOrderPDFDoc({
   patientName,
   patientCode,
   laboratoryName,
+  laboratoryAddress = "",
+  laboratoryTel = "",
   doctorName,
   orderDate,
   dueDate,
   note,
   items,
+  depositItems = [],
   createdAt,
-  clinicName = "",
 }: Props) {
   return (
     <Document>
@@ -349,10 +334,9 @@ export default function LabOrderPDFDoc({
         {/* ── ヘッダー ── */}
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
-            {clinicName ? (
-              <Text style={styles.clinicName}>{clinicName}</Text>
-            ) : null}
-            <Text style={styles.clinicSub}>担当医: {doctorName || "　"}</Text>
+            <Text style={styles.clinicName}>はとも歯科さんのみや</Text>
+            <Text style={styles.clinicSub}>{CLINIC_POSTAL}　{CLINIC_ADDRESS}</Text>
+            <Text style={styles.clinicSub}>{CLINIC_TEL}　担当医: {doctorName || "　"}</Text>
           </View>
           <View style={styles.headerCenter}>
             <Text style={styles.docTitle}>技工指示書</Text>
@@ -363,16 +347,22 @@ export default function LabOrderPDFDoc({
         </View>
         <View style={styles.thickRule} />
 
-        {/* ── 宛先 ── */}
+        {/* ── 宛先（技工所） ── */}
         <View style={styles.addressBar}>
           <Text style={styles.addressLabel}>技工所</Text>
-          <Text style={styles.addressValue}>{laboratoryName || "　"}</Text>
+          <View style={styles.addressMain}>
+            <Text style={styles.addressValue}>{laboratoryName || "　"}</Text>
+            {(laboratoryAddress || laboratoryTel) ? (
+              <Text style={styles.addressSub}>
+                {[laboratoryAddress, laboratoryTel].filter(Boolean).join("　")}
+              </Text>
+            ) : null}
+          </View>
           <Text style={styles.addressSuffix}>御中</Text>
         </View>
 
         {/* ── 患者情報 + 日程 ── */}
         <View style={styles.infoGrid}>
-          {/* 左列: 患者情報 */}
           <View style={styles.infoCol}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>患者コード</Text>
@@ -383,8 +373,6 @@ export default function LabOrderPDFDoc({
               <Text style={[styles.infoValue, styles.infoBold]}>{patientName} 様</Text>
             </View>
           </View>
-
-          {/* 右列: 日程 */}
           <View style={styles.infoColDivider}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>発注日</Text>
@@ -402,7 +390,6 @@ export default function LabOrderPDFDoc({
           <Text style={styles.sectionHeaderText}>■ 指示内容</Text>
         </View>
         <View style={styles.table}>
-          {/* ヘッダー行 */}
           <View style={styles.tableHead}>
             <Text style={[styles.th, styles.colNo]}>No.</Text>
             <Text style={[styles.th, styles.colTooth]}>部位</Text>
@@ -412,8 +399,6 @@ export default function LabOrderPDFDoc({
             <Text style={[styles.th, styles.colQty]}>数量</Text>
             <Text style={[styles.th, styles.colNote]}>備考</Text>
           </View>
-
-          {/* データ行 */}
           {items.map((item, i) => {
             const isLast = i === items.length - 1;
             const rowStyle = isLast
@@ -433,8 +418,6 @@ export default function LabOrderPDFDoc({
               </View>
             );
           })}
-
-          {/* 空行パディング（最低5行確保） */}
           {Array.from({ length: Math.max(0, 5 - items.length) }).map((_, i) => (
             <View key={`empty-${i}`} style={i === Math.max(0, 5 - items.length) - 1 ? styles.tableRowLast : styles.tableRow}>
               <Text style={[styles.td, styles.colNo]}> </Text>
@@ -448,29 +431,27 @@ export default function LabOrderPDFDoc({
           ))}
         </View>
 
+        {/* ── 預かり品 ── */}
+        <View style={styles.depositSection}>
+          <Text style={styles.depositLabel}>預かり品</Text>
+          {depositItems.length > 0 ? (
+            <View style={styles.depositBody}>
+              {depositItems.map((d, i) => (
+                <View key={i} style={styles.depositChip}>
+                  <Text style={styles.depositChipText}>✓ {d}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.depositEmpty}>（なし）</Text>
+          )}
+        </View>
+
         {/* ── 特記事項 ── */}
         <View style={styles.noteSection}>
           <Text style={styles.noteLabel}>特記事項 / 備考</Text>
           <View style={styles.noteBody}>
-            {note ? (
-              <Text style={styles.noteText}>{note}</Text>
-            ) : (
-              <Text style={styles.notePlaceholder}> </Text>
-            )}
-          </View>
-        </View>
-
-        {/* ── 署名欄 ── */}
-        <View style={styles.signRow}>
-          <View style={styles.signBox}>
-            <Text style={styles.signLabel}>歯科医師署名</Text>
-            <View style={styles.signSpace}>
-              <Text style={{ fontSize: 9 }}>{doctorName || ""}</Text>
-            </View>
-          </View>
-          <View style={styles.signBox}>
-            <Text style={styles.signLabel}>印</Text>
-            <View style={styles.signSpace} />
+            <Text style={styles.noteText}>{note || " "}</Text>
           </View>
         </View>
 

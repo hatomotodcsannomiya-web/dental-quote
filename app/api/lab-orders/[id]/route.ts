@@ -13,7 +13,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { laboratoryId, doctorName, orderDate, dueDate, note, items } = await req.json();
+  const { laboratoryId, doctorName, orderDate, dueDate, note, items, depositItems } = await req.json();
 
   const order = await prisma.labOrder.update({
     where: { id: Number(id) },
@@ -24,6 +24,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       ...(dueDate !== undefined && { dueDate }),
       ...(note !== undefined && { note: note?.trim() || null }),
       ...(items !== undefined && { items: JSON.stringify(items) }),
+      ...(depositItems !== undefined && { depositItems: JSON.stringify(depositItems) }),
     },
     include: { laboratory: true },
   });
