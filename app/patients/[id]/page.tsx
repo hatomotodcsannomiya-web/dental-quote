@@ -94,6 +94,96 @@ interface SavedLabOrder {
 
 const TECH_EXCLUDE_KEYWORDS = ["仮歯", "麻酔", "抜歯", "消毒", "レントゲン", "CT", "相談", "検査", "診断", "クリーニング", "ホワイトニング", "矯正装置", "インビザライン", "マウスピース", "シーラント"];
 
+const QUADRANTS = [
+  { key: "右上", teeth: [8,7,6,5,4,3,2,1] as const },
+  { key: "左上", teeth: [1,2,3,4,5,6,7,8] as const },
+  { key: "右下", teeth: [8,7,6,5,4,3,2,1] as const },
+  { key: "左下", teeth: [1,2,3,4,5,6,7,8] as const },
+] as const;
+
+const TOOTH_ORDER = ["右上", "左上", "左下", "右下"] as const;
+
+function parseTeeth(value: string): string[] {
+  return value ? value.split("・").filter(Boolean) : [];
+}
+
+function sortTeeth(teeth: string[]): string[] {
+  return [...teeth].sort((a, b) => {
+    const qa = TOOTH_ORDER.findIndex((q) => a.startsWith(q));
+    const qb = TOOTH_ORDER.findIndex((q) => b.startsWith(q));
+    if (qa !== qb) return qa - qb;
+    return parseInt(a.slice(2)) - parseInt(b.slice(2));
+  });
+}
+
+function ToothChartSelector({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const selected = parseTeeth(value);
+
+  function toggle(label: string) {
+    const next = selected.includes(label)
+      ? selected.filter((t) => t !== label)
+      : [...selected, label];
+    onChange(sortTeeth(next).join("・"));
+  }
+
+  const btnBase = "w-7 h-7 text-[11px] font-semibold rounded border transition-colors";
+  const btnOn  = "bg-blue-600 text-white border-blue-600";
+  const btnOff = "bg-white text-gray-600 border-gray-200 hover:border-blue-400 hover:bg-blue-50";
+
+  return (
+    <div className="border border-gray-200 rounded-xl p-2 bg-white mt-1 select-none">
+      <div className="text-[10px] text-gray-400 text-center mb-1.5">タップで選択（複数可）</div>
+      {/* 上段ラベル */}
+      <div className="flex text-[10px] text-gray-500 mb-0.5 pr-0.5">
+        <div className="flex-1 text-center">右上</div>
+        <div className="w-[2px] mx-0.5" />
+        <div className="flex-1 text-center">左上</div>
+      </div>
+      {/* 上顎歯列 */}
+      <div className="flex items-center justify-center mb-0.5">
+        {QUADRANTS[0].teeth.map((n) => {
+          const label = `右上${n}`;
+          return <button key={label} type="button" onClick={() => toggle(label)} className={`${btnBase} mx-0.5 ${selected.includes(label) ? btnOn : btnOff}`}>{n}</button>;
+        })}
+        <div className="w-[2px] h-7 bg-gray-300 mx-1 rounded" />
+        {QUADRANTS[1].teeth.map((n) => {
+          const label = `左上${n}`;
+          return <button key={label} type="button" onClick={() => toggle(label)} className={`${btnBase} mx-0.5 ${selected.includes(label) ? btnOn : btnOff}`}>{n}</button>;
+        })}
+      </div>
+      {/* 上下分割線 */}
+      <div className="h-[2px] bg-gray-300 rounded my-0.5 mx-1" />
+      {/* 下顎歯列 */}
+      <div className="flex items-center justify-center mt-0.5">
+        {QUADRANTS[2].teeth.map((n) => {
+          const label = `右下${n}`;
+          return <button key={label} type="button" onClick={() => toggle(label)} className={`${btnBase} mx-0.5 ${selected.includes(label) ? btnOn : btnOff}`}>{n}</button>;
+        })}
+        <div className="w-[2px] h-7 bg-gray-300 mx-1 rounded" />
+        {QUADRANTS[3].teeth.map((n) => {
+          const label = `左下${n}`;
+          return <button key={label} type="button" onClick={() => toggle(label)} className={`${btnBase} mx-0.5 ${selected.includes(label) ? btnOn : btnOff}`}>{n}</button>;
+        })}
+      </div>
+      {/* 下段ラベル */}
+      <div className="flex text-[10px] text-gray-500 mt-0.5">
+        <div className="flex-1 text-center">右下</div>
+        <div className="w-[2px] mx-0.5" />
+        <div className="flex-1 text-center">左下</div>
+      </div>
+      {/* 選択中表示 + クリア */}
+      <div className="flex items-center justify-between mt-1.5 min-h-5">
+        <span className="text-xs text-blue-700 font-medium truncate">
+          {selected.length > 0 ? selected.join("・") : <span className="text-gray-300">未選択</span>}
+        </span>
+        {selected.length > 0 && (
+          <button type="button" onClick={() => onChange("")} className="text-[10px] text-red-400 hover:text-red-600 ml-2 shrink-0">クリア</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function filterLabItems(items: QuoteItem[]): LabOrderItemForm[] {
   return items
     .filter((item) => {
@@ -161,6 +251,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
   const [labOrderPdfLoadingId, setLabOrderPdfLoadingId] = useState<number | null>(null);
   const [labOrderDeleteConfirmId, setLabOrderDeleteConfirmId] = useState<number | null>(null);
   const [deletingLabOrderId, setDeletingLabOrderId] = useState<number | null>(null);
+  const [openToothSelectorIdx, setOpenToothSelectorIdx] = useState<number | null>(null);
 
   async function load() {
     const res = await fetch(`/api/patients/${id}`);
@@ -800,38 +891,55 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                         <span className="text-xs font-medium text-purple-700">#{i + 1}</span>
                         <button type="button" onClick={() => removeLabOrderItem(i)} disabled={labOrderForm.items.length <= 1} className="text-xs text-red-400 hover:text-red-600 disabled:opacity-30">削除</button>
                       </div>
-                      {/* 1行目: 部位 + 補綴装置 */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-xs text-gray-400 mb-0.5">部位</label>
-                          <input
-                            type="text"
-                            value={item.toothLabel}
-                            onChange={(e) => updateLabOrderItem(i, "toothLabel", e.target.value)}
-                            placeholder="例：上6"
-                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs w-full bg-white focus:outline-none focus:ring-1 focus:ring-purple-300"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-gray-400 mb-0.5">補綴装置</label>
-                          <select
-                            value={item.treatmentName}
-                            onChange={(e) => updateLabOrderItem(i, "treatmentName", e.target.value)}
-                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs w-full bg-white focus:outline-none focus:ring-1 focus:ring-purple-300"
+                      {/* 部位（歯式チャート） */}
+                      <div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <label className="text-xs text-gray-400">部位</label>
+                          <button
+                            type="button"
+                            onClick={() => setOpenToothSelectorIdx(openToothSelectorIdx === i ? null : i)}
+                            className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${openToothSelectorIdx === i ? "bg-purple-600 text-white border-purple-600" : "border-purple-200 text-purple-600 hover:bg-purple-50"}`}
                           >
-                            <option value="">選択してください</option>
-                            {treatments.length > 0 && (
-                              <optgroup label="補綴カテゴリ">
-                                {treatments.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-                              </optgroup>
-                            )}
-                            {labProsthetics.length > 0 && (
-                              <optgroup label="追加項目">
-                                {labProsthetics.map((name) => <option key={name} value={name}>{name}</option>)}
-                              </optgroup>
-                            )}
-                          </select>
+                            {openToothSelectorIdx === i ? "閉じる" : "歯を選択"}
+                          </button>
                         </div>
+                        {/* 選択中の表示 */}
+                        <div
+                          className="text-xs px-2 py-1.5 rounded-lg border border-gray-200 bg-white min-h-[30px] cursor-pointer"
+                          onClick={() => setOpenToothSelectorIdx(openToothSelectorIdx === i ? null : i)}
+                        >
+                          {item.toothLabel
+                            ? <span className="text-blue-700 font-medium">{item.toothLabel}</span>
+                            : <span className="text-gray-300">未選択</span>}
+                        </div>
+                        {openToothSelectorIdx === i && (
+                          <ToothChartSelector
+                            value={item.toothLabel}
+                            onChange={(v) => updateLabOrderItem(i, "toothLabel", v)}
+                          />
+                        )}
+                      </div>
+                      {/* 補綴装置 */}
+                      {/* 補綴装置 */}
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-0.5">補綴装置</label>
+                        <select
+                          value={item.treatmentName}
+                          onChange={(e) => updateLabOrderItem(i, "treatmentName", e.target.value)}
+                          className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs w-full bg-white focus:outline-none focus:ring-1 focus:ring-purple-300"
+                        >
+                          <option value="">選択してください</option>
+                          {treatments.length > 0 && (
+                            <optgroup label="補綴カテゴリ">
+                              {treatments.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+                            </optgroup>
+                          )}
+                          {labProsthetics.length > 0 && (
+                            <optgroup label="追加項目">
+                              {labProsthetics.map((name) => <option key={name} value={name}>{name}</option>)}
+                            </optgroup>
+                          )}
+                        </select>
                       </div>
                       {/* 補綴装置 自由入力フォールバック */}
                       {item.treatmentName && !treatments.find((t) => t.name === item.treatmentName) && !labProsthetics.includes(item.treatmentName) && (
