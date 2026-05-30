@@ -1097,14 +1097,20 @@ interface DiscountType {
   id: number;
   name: string;
   discountPercent: number;
+  discountAmount: number;
   isActive: boolean;
+}
+
+function discountLabel(d: DiscountType) {
+  if (d.discountAmount > 0) return `-¥${d.discountAmount.toLocaleString()}`;
+  return `-${d.discountPercent}%`;
 }
 
 function DiscountsTab() {
   const [discounts, setDiscounts] = useState<DiscountType[]>([]);
-  const [newForm, setNewForm] = useState({ name: "", discountPercent: "" });
+  const [newForm, setNewForm] = useState({ name: "", type: "percent" as "percent" | "amount", discountPercent: "", discountAmount: "" });
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", discountPercent: "" });
+  const [editForm, setEditForm] = useState({ name: "", type: "percent" as "percent" | "amount", discountPercent: "", discountAmount: "" });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { loadDiscounts(); }, []);
@@ -1115,26 +1121,32 @@ function DiscountsTab() {
   }
 
   async function addDiscount() {
-    const pct = Number(newForm.discountPercent);
-    if (!newForm.name.trim() || !pct || pct <= 0 || pct > 100) return;
+    if (!newForm.name.trim()) return;
+    const pct = newForm.type === "percent" ? Number(newForm.discountPercent) : 0;
+    const amt = newForm.type === "amount" ? Number(newForm.discountAmount) : 0;
+    if (newForm.type === "percent" && (pct <= 0 || pct > 100)) return;
+    if (newForm.type === "amount" && amt <= 0) return;
     setSaving(true);
     await fetch("/api/discount-types", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newForm.name.trim(), discountPercent: pct }),
+      body: JSON.stringify({ name: newForm.name.trim(), discountPercent: pct, discountAmount: amt }),
     });
-    setNewForm({ name: "", discountPercent: "" });
+    setNewForm({ name: "", type: "percent", discountPercent: "", discountAmount: "" });
     await loadDiscounts();
     setSaving(false);
   }
 
   async function updateDiscount(id: number) {
-    const pct = Number(editForm.discountPercent);
-    if (!editForm.name.trim() || !pct) return;
+    if (!editForm.name.trim()) return;
+    const pct = editForm.type === "percent" ? Number(editForm.discountPercent) : 0;
+    const amt = editForm.type === "amount" ? Number(editForm.discountAmount) : 0;
+    if (editForm.type === "percent" && (pct <= 0 || pct > 100)) return;
+    if (editForm.type === "amount" && amt <= 0) return;
     await fetch(`/api/discount-types/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: editForm.name.trim(), discountPercent: pct }),
+      body: JSON.stringify({ name: editForm.name.trim(), discountPercent: pct, discountAmount: amt }),
     });
     setEditingId(null);
     loadDiscounts();
@@ -1155,15 +1167,28 @@ function DiscountsTab() {
     loadDiscounts();
   }
 
+  function TypeToggle({ value, onChange }: { value: "percent" | "amount"; onChange: (v: "percent" | "amount") => void }) {
+    return (
+      <div className="flex rounded-lg border border-gray-300 overflow-hidden text-xs">
+        <button type="button" onClick={() => onChange("percent")} className={`px-3 py-1.5 ${value === "percent" ? "bg-blue-600 text-white font-semibold" : "bg-white text-gray-500 hover:bg-gray-50"}`}>%割引</button>
+        <button type="button" onClick={() => onChange("amount")} className={`px-3 py-1.5 ${value === "amount" ? "bg-blue-600 text-white font-semibold" : "bg-white text-gray-500 hover:bg-gray-50"}`}>額割引</button>
+      </div>
+    );
+  }
+
+  const newInvalid = !newForm.name.trim() ||
+    (newForm.type === "percent" && (!newForm.discountPercent || Number(newForm.discountPercent) <= 0)) ||
+    (newForm.type === "amount" && (!newForm.discountAmount || Number(newForm.discountAmount) <= 0));
+
   return (
     <div className="bg-white rounded-xl shadow-sm p-5">
       <h2 className="text-base font-semibold text-gray-800 mb-1">割引管理</h2>
-      <p className="text-xs text-gray-400 mb-4">見積もり作成時に選択できる割引の種類と割引率を管理します。</p>
+      <p className="text-xs text-gray-400 mb-4">見積もり作成時に選択できる割引の種類を管理します。割引率（%）または割引額（円）を設定できます。</p>
 
       <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
         <h3 className="text-sm font-semibold text-blue-800 mb-3">新規追加</h3>
-        <div className="flex gap-2 items-end">
-          <div className="flex-1">
+        <div className="flex gap-2 items-end flex-wrap">
+          <div className="flex-1 min-w-40">
             <label className="block text-xs text-gray-500 mb-1">割引名 <span className="text-red-400">*</span></label>
             <input
               type="text"
@@ -1174,28 +1199,31 @@ function DiscountsTab() {
               onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && addDiscount()}
             />
           </div>
-          <div className="w-32">
-            <label className="block text-xs text-gray-500 mb-1">割引率（%） <span className="text-red-400">*</span></label>
-            <div className="relative">
-              <input
-                type="number"
-                value={newForm.discountPercent}
-                onChange={(e) => setNewForm({ ...newForm, discountPercent: e.target.value })}
-                onFocus={(e) => e.target.select()}
-                min={1}
-                max={100}
-                placeholder="10"
-                className="border border-gray-300 rounded px-3 py-2 text-sm w-full pr-6 focus:outline-none focus:ring-1 focus:ring-blue-400"
-              />
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
-            </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">種別</label>
+            <TypeToggle value={newForm.type} onChange={(v) => setNewForm({ ...newForm, type: v })} />
           </div>
-          <button
-            type="button"
-            onClick={addDiscount}
-            disabled={saving || !newForm.name.trim() || !newForm.discountPercent}
-            className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50 shrink-0"
-          >
+          {newForm.type === "percent" ? (
+            <div className="w-28">
+              <label className="block text-xs text-gray-500 mb-1">割引率 <span className="text-red-400">*</span></label>
+              <div className="relative">
+                <input type="number" value={newForm.discountPercent} onChange={(e) => setNewForm({ ...newForm, discountPercent: e.target.value })} onFocus={(e) => e.target.select()} min={1} max={100} placeholder="10"
+                  className="border border-gray-300 rounded px-3 py-2 text-sm w-full pr-6 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
+              </div>
+            </div>
+          ) : (
+            <div className="w-32">
+              <label className="block text-xs text-gray-500 mb-1">割引額 <span className="text-red-400">*</span></label>
+              <div className="relative">
+                <input type="number" value={newForm.discountAmount} onChange={(e) => setNewForm({ ...newForm, discountAmount: e.target.value })} onFocus={(e) => e.target.select()} min={1} placeholder="5000"
+                  className="border border-gray-300 rounded px-3 py-2 text-sm w-full pl-5 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">¥</span>
+              </div>
+            </div>
+          )}
+          <button type="button" onClick={addDiscount} disabled={saving || newInvalid}
+            className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50 shrink-0">
             追加する
           </button>
         </div>
@@ -1207,34 +1235,35 @@ function DiscountsTab() {
           <div key={d.id} className={`rounded-lg border px-4 py-3 flex items-center gap-3 ${!d.isActive ? "opacity-50 bg-gray-50 border-gray-100" : "bg-white border-gray-200"}`}>
             {editingId === d.id ? (
               <>
-                <input
-                  type="text"
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="border rounded px-2 py-1 text-sm flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                  autoFocus
-                />
-                <div className="relative w-24">
-                  <input
-                    type="number"
-                    value={editForm.discountPercent}
-                    onChange={(e) => setEditForm({ ...editForm, discountPercent: e.target.value })}
-                    onFocus={(e) => e.target.select()}
-                    min={1}
-                    max={100}
-                    className="border rounded px-2 py-1 text-sm w-full pr-5 focus:outline-none"
-                  />
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
-                </div>
+                <input type="text" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  className="border rounded px-2 py-1 text-sm flex-1 min-w-24 focus:outline-none focus:ring-1 focus:ring-blue-400" autoFocus />
+                <TypeToggle value={editForm.type} onChange={(v) => setEditForm({ ...editForm, type: v })} />
+                {editForm.type === "percent" ? (
+                  <div className="relative w-20">
+                    <input type="number" value={editForm.discountPercent} onChange={(e) => setEditForm({ ...editForm, discountPercent: e.target.value })} onFocus={(e) => e.target.select()} min={1} max={100}
+                      className="border rounded px-2 py-1 text-sm w-full pr-5 focus:outline-none" />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
+                  </div>
+                ) : (
+                  <div className="relative w-24">
+                    <input type="number" value={editForm.discountAmount} onChange={(e) => setEditForm({ ...editForm, discountAmount: e.target.value })} onFocus={(e) => e.target.select()} min={1}
+                      className="border rounded px-2 py-1 text-sm w-full pl-4 focus:outline-none" />
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">¥</span>
+                  </div>
+                )}
                 <button type="button" onClick={() => updateDiscount(d.id)} className="text-xs text-blue-600 hover:text-blue-800">保存</button>
                 <button type="button" onClick={() => setEditingId(null)} className="text-xs text-gray-400 hover:text-gray-600">キャンセル</button>
               </>
             ) : (
               <>
                 <span className="flex-1 text-sm font-medium text-gray-800">{d.name}</span>
-                <span className="text-sm font-bold text-red-500">-{d.discountPercent}%</span>
+                <span className="text-sm font-bold text-red-500">{discountLabel(d)}</span>
                 {!d.isActive && <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">無効</span>}
-                <button type="button" onClick={() => { setEditingId(d.id); setEditForm({ name: d.name, discountPercent: String(d.discountPercent) }); }} className="text-xs text-blue-500 hover:text-blue-700">編集</button>
+                <button type="button" onClick={() => {
+                  const isAmt = d.discountAmount > 0;
+                  setEditingId(d.id);
+                  setEditForm({ name: d.name, type: isAmt ? "amount" : "percent", discountPercent: String(d.discountPercent), discountAmount: String(d.discountAmount) });
+                }} className="text-xs text-blue-500 hover:text-blue-700">編集</button>
                 <button type="button" onClick={() => toggleActive(d)} className={`text-xs ${d.isActive ? "text-orange-400 hover:text-orange-600" : "text-green-500 hover:text-green-700"}`}>
                   {d.isActive ? "無効化" : "有効化"}
                 </button>

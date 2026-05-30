@@ -40,7 +40,7 @@ function QuoteNewInner() {
   const [warrantyLoading, setWarrantyLoading] = useState(false);
   const [warrantyEditData, setWarrantyEditData] = useState<WarrantyItem[] | null>(null);
   const [previewPdf, setPreviewPdf] = useState<{ url: string; filename: string } | null>(null);
-  const [discountTypes, setDiscountTypes] = useState<{ id: number; name: string; discountPercent: number }[]>([]);
+  const [discountTypes, setDiscountTypes] = useState<{ id: number; name: string; discountPercent: number; discountAmount: number }[]>([]);
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [selectedDiscountId, setSelectedDiscountId] = useState<number | null>(null);
 
@@ -88,16 +88,23 @@ function QuoteNewInner() {
     if (!selectedDiscountId) return;
     const dtype = discountTypes.find((d) => d.id === selectedDiscountId);
     if (!dtype) return;
-    // 割引行を除いた小計で計算
-    const baseSubtotal = items
-      .filter((i) => i.toothId !== "__discount__")
-      .reduce((s, i) => s + i.unitPrice * i.quantity, 0);
-    const discountAmount = Math.floor(baseSubtotal * (dtype.discountPercent / 100));
+    let discountAmount: number;
+    let label: string;
+    if (dtype.discountAmount > 0) {
+      discountAmount = dtype.discountAmount;
+      label = `${dtype.name}（-¥${dtype.discountAmount.toLocaleString()}）`;
+    } else {
+      const baseSubtotal = items
+        .filter((i) => i.toothId !== "__discount__")
+        .reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+      discountAmount = Math.floor(baseSubtotal * (dtype.discountPercent / 100));
+      label = `${dtype.name}（-${dtype.discountPercent}%）`;
+    }
     const discountItem: QuoteLineItem = {
       toothId: "__discount__",
       toothLabel: "",
       treatmentId: 0,
-      treatmentName: `${dtype.name}（-${dtype.discountPercent}%）`,
+      treatmentName: label,
       categoryName: "割引",
       quantity: 1,
       unitPrice: -discountAmount,
@@ -517,14 +524,16 @@ function QuoteNewInner() {
       {showDiscountModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
-            <h2 className="text-base font-bold text-gray-800 mb-1">%割引を追加</h2>
+            <h2 className="text-base font-bold text-gray-800 mb-1">割引を追加</h2>
             <p className="text-xs text-gray-400 mb-4">
               割引前小計 ¥{items.filter((i) => i.toothId !== "__discount__").reduce((s, i) => s + i.unitPrice * i.quantity, 0).toLocaleString()} に対して適用されます。
             </p>
             <div className="space-y-2 mb-5">
               {discountTypes.map((d) => {
                 const base = items.filter((i) => i.toothId !== "__discount__").reduce((s, i) => s + i.unitPrice * i.quantity, 0);
-                const amount = Math.floor(base * (d.discountPercent / 100));
+                const isFixed = d.discountAmount > 0;
+                const amount = isFixed ? d.discountAmount : Math.floor(base * (d.discountPercent / 100));
+                const badge = isFixed ? `-¥${amount.toLocaleString()}` : `-${d.discountPercent}%（▼ ¥${amount.toLocaleString()}）`;
                 return (
                   <button
                     key={d.id}
@@ -533,7 +542,7 @@ function QuoteNewInner() {
                     className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm transition-all ${selectedDiscountId === d.id ? "border-red-400 bg-red-50 text-red-700 font-semibold" : "border-gray-200 hover:border-red-200 hover:bg-red-50"}`}
                   >
                     <span>{d.name}</span>
-                    <span className="font-bold text-red-600">-{d.discountPercent}%（▼ ¥{amount.toLocaleString()}）</span>
+                    <span className="font-bold text-red-600">{badge}</span>
                   </button>
                 );
               })}

@@ -3,13 +3,14 @@ import { NextRequest } from "next/server";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { name, discountPercent, isActive } = await req.json();
+  const { name, discountPercent, discountAmount, isActive } = await req.json();
 
   const type = await prisma.discountType.update({
     where: { id: Number(id) },
     data: {
       ...(name !== undefined && { name: name.trim() }),
-      ...(discountPercent !== undefined && { discountPercent: Math.round(discountPercent) }),
+      ...(discountPercent !== undefined && { discountPercent: Math.round(Number(discountPercent)) }),
+      ...(discountAmount !== undefined && { discountAmount: Math.round(Number(discountAmount)) }),
       ...(isActive !== undefined && { isActive }),
     },
   });
