@@ -42,7 +42,7 @@ export default function TopPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex flex-col">
       <header className="bg-white shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-lg font-bold text-blue-800">自費診療 見積書作成</h1>
+          <h1 className="text-lg font-bold text-blue-800">自費診療 見積・技工管理</h1>
           <div className="flex gap-3">
             <a href="/patients" className="text-xs text-blue-500 hover:text-blue-700">患者一覧</a>
             <a href="/quotes" className="text-xs text-blue-500 hover:text-blue-700">見積履歴</a>
