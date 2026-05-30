@@ -264,6 +264,8 @@ const styles = StyleSheet.create({
   noteBody: {
     padding: "5 8",
     minHeight: 40,
+    maxHeight: 85,
+    overflow: "hidden",
   },
   noteText: {
     fontSize: 8,
@@ -271,17 +273,28 @@ const styles = StyleSheet.create({
     color: "#222",
   },
 
-  /* ── フッター ── */
+  /* ── フッター（クリニック情報） ── */
   footer: {
     position: "absolute",
-    bottom: 10,
+    bottom: 8,
     left: 20,
     right: 20,
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "flex-end",
     borderTopWidth: 0.5,
     borderTopColor: LINE,
-    paddingTop: 3,
+    paddingTop: 4,
+  },
+  footerClinicName: {
+    fontSize: 7,
+    fontWeight: "bold",
+    color: "#444",
+    marginBottom: 1,
+  },
+  footerAddress: {
+    fontSize: 6,
+    color: "#666",
   },
   footerText: {
     fontSize: 6.5,
@@ -333,16 +346,13 @@ export default function LabOrderPDFDoc({
 
         {/* ── ヘッダー ── */}
         <View style={styles.headerRow}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.clinicName}>三宮はともとデンタルクリニック</Text>
-            <Text style={styles.clinicSub}>{CLINIC_POSTAL}　{CLINIC_ADDRESS}</Text>
-            <Text style={styles.clinicSub}>{CLINIC_TEL}　担当医: {doctorName || "　"}</Text>
-          </View>
+          <View style={styles.headerLeft} />
           <View style={styles.headerCenter}>
             <Text style={styles.docTitle}>技工指示書</Text>
           </View>
           <View style={styles.headerRight}>
             <Text style={styles.issueMeta}>発行日: {createdAt}</Text>
+            <Text style={styles.issueMeta}>担当医: {doctorName || "　"}</Text>
           </View>
         </View>
         <View style={styles.thickRule} />
@@ -455,9 +465,14 @@ export default function LabOrderPDFDoc({
           </View>
         </View>
 
-        {/* ── フッター ── */}
+        {/* ── フッター（クリニック情報） ── */}
         <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>技工指示書 — 歯科技工依頼用</Text>
+          <View>
+            <Text style={styles.footerClinicName}>三宮はともとデンタルクリニック</Text>
+            <Text style={styles.footerAddress}>
+              {CLINIC_POSTAL}{"  "}{CLINIC_ADDRESS}{"  "}{CLINIC_TEL}
+            </Text>
+          </View>
           <Text style={styles.footerText}>発行日: {createdAt}</Text>
         </View>
 

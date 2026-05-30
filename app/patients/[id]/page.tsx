@@ -428,10 +428,11 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
   // 技工指示書フォームを開く（見積もりから）
   function openLabOrderFromQuote(quote: Quote) {
     const today = new Date().toISOString().slice(0, 10);
+    const defaultDoctorId = doctors.find((d) => d.name.replace(/\s/g, "").includes("波戸本"))?.id ?? null;
     setLabOrderForm({
       quote,
       laboratoryId: null,
-      doctorId: null,
+      doctorId: defaultDoctorId,
       orderDate: today,
       dueDate: "",
       note: "",
@@ -443,10 +444,11 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
   // 技工指示書フォームを開く（独立作成）
   function openLabOrderNew() {
     const today = new Date().toISOString().slice(0, 10);
+    const defaultDoctorId = doctors.find((d) => d.name.replace(/\s/g, "").includes("波戸本"))?.id ?? null;
     setLabOrderForm({
       quote: null,
       laboratoryId: null,
-      doctorId: null,
+      doctorId: defaultDoctorId,
       orderDate: today,
       dueDate: "",
       note: "",
@@ -478,7 +480,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
 
   async function submitLabOrder() {
     if (!labOrderForm || !patient) return;
-    if (!labOrderForm.orderDate || !labOrderForm.dueDate) return;
+    if (!labOrderForm.orderDate || !labOrderForm.dueDate || !labOrderForm.doctorId) return;
     setLabOrderSubmitting(true);
     try {
       const lab = labs.find((l) => l.id === labOrderForm.laboratoryId);
@@ -857,11 +859,11 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">担当医</label>
+                  <label className="block text-xs text-gray-500 mb-1">担当医 <span className="text-red-400">*</span></label>
                   <select
                     value={labOrderForm.doctorId ?? ""}
                     onChange={(e) => setLabOrderForm((p) => p ? { ...p, doctorId: e.target.value ? Number(e.target.value) : null } : null)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    className={`border rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-purple-400 ${!labOrderForm.doctorId ? "border-red-300" : "border-gray-300"}`}
                   >
                     <option value="">選択してください</option>
                     {doctors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -1062,7 +1064,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
               <button type="button" onClick={() => setLabOrderForm(null)} disabled={labOrderSubmitting} className="flex-1 border border-gray-300 text-gray-600 py-2.5 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50">
                 キャンセル
               </button>
-              <button type="button" onClick={submitLabOrder} disabled={labOrderSubmitting || !labOrderForm.orderDate || !labOrderForm.dueDate} className="flex-1 bg-purple-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-purple-700 disabled:opacity-50">
+              <button type="button" onClick={submitLabOrder} disabled={labOrderSubmitting || !labOrderForm.orderDate || !labOrderForm.dueDate || !labOrderForm.doctorId} className="flex-1 bg-purple-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-purple-700 disabled:opacity-50">
                 {labOrderSubmitting ? "保存中..." : "保存してPDF生成"}
               </button>
             </div>
