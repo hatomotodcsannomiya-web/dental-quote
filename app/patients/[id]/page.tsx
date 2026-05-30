@@ -195,6 +195,10 @@ function ToothChartSelector({ value, onChange }: { value: string; onChange: (v: 
   );
 }
 
+function safeJsonParse<T>(str: string, fallback: T): T {
+  try { return JSON.parse(str) as T; } catch { return fallback; }
+}
+
 function filterLabItems(items: QuoteItem[]): LabOrderItemForm[] {
   return items
     .filter((item) => {
@@ -313,6 +317,13 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
   }
 
   useEffect(() => { load(); loadWarranties(); loadLabOrders(); loadMasters(); }, [id]);
+
+  // mastersロード後にフォームが既に開いていてdoctorIdがnullのままなら自動補完
+  useEffect(() => {
+    if (!labOrderForm || labOrderForm.doctorId !== null || doctors.length === 0) return;
+    const defaultId = doctors.find((d) => d.name.replace(/\s/g, "").includes("波戸本"))?.id ?? null;
+    if (defaultId !== null) setLabOrderForm((prev) => prev ? { ...prev, doctorId: defaultId } : null);
+  }, [doctors]);
 
   async function handleEditSave() {
     if (!editForm.name.trim()) return;
@@ -480,7 +491,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
 
   async function submitLabOrder() {
     if (!labOrderForm || !patient) return;
-    if (!labOrderForm.orderDate || !labOrderForm.dueDate || !labOrderForm.doctorId) return;
+    if (!labOrderForm.orderDate || !labOrderForm.dueDate || !labOrderForm.doctorId || !labOrderForm.laboratoryId) return;
     setLabOrderSubmitting(true);
     try {
       const lab = labs.find((l) => l.id === labOrderForm.laboratoryId);
@@ -529,6 +540,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
       const url = URL.createObjectURL(blob);
       setPreviewPdf({ url, filename: `技工指示書_${patient.code}_${saved.id}.pdf` });
       setLabOrderForm(null);
+      setOpenToothSelectorIdx(null);
       loadLabOrders();
     } finally {
       setLabOrderSubmitting(false);
@@ -774,7 +786,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
           ) : (
             <div className="space-y-2">
               {labOrders.map((order) => {
-                const items = JSON.parse(order.items) as LabOrderItemForm[];
+                const items = safeJsonParse<LabOrderItemForm[]>(order.items, []);
                 return (
                   <div key={order.id} className="bg-white rounded-xl shadow-sm px-5 py-3 flex items-center gap-3">
                     <div className="flex-1 min-w-0">
@@ -806,7 +818,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
           ) : (
             <div className="space-y-2">
               {warranties.map((w) => {
-                const parsedItems = JSON.parse(w.items) as WarrantyItem[];
+                const parsedItems = safeJsonParse<WarrantyItem[]>(w.items, []);
                 return (
                   <div key={w.id} className="bg-white rounded-xl shadow-sm px-5 py-3 flex items-center gap-3">
                     <div className="flex-1 min-w-0">
@@ -841,7 +853,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                 技工指示書を作成
                 {labOrderForm.quote && <span className="ml-2 text-xs text-gray-400 font-normal">（見積 #{labOrderForm.quote.id} より）</span>}
               </h2>
-              <button type="button" onClick={() => setLabOrderForm(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+              <button type="button" onClick={() => { setLabOrderForm(null); setOpenToothSelectorIdx(null); }} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
             </div>
 
             <div className="px-6 py-4 space-y-4">
@@ -1061,10 +1073,10 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
 
             {/* フッターボタン */}
             <div className="flex gap-3 px-6 pb-5">
-              <button type="button" onClick={() => setLabOrderForm(null)} disabled={labOrderSubmitting} className="flex-1 border border-gray-300 text-gray-600 py-2.5 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50">
+              <button type="button" onClick={() => { setLabOrderForm(null); setOpenToothSelectorIdx(null); }} disabled={labOrderSubmitting} className="flex-1 border border-gray-300 text-gray-600 py-2.5 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50">
                 キャンセル
               </button>
-              <button type="button" onClick={submitLabOrder} disabled={labOrderSubmitting || !labOrderForm.orderDate || !labOrderForm.dueDate || !labOrderForm.doctorId} className="flex-1 bg-purple-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-purple-700 disabled:opacity-50">
+              <button type="button" onClick={submitLabOrder} disabled={labOrderSubmitting || !labOrderForm.orderDate || !labOrderForm.dueDate || !labOrderForm.doctorId || !labOrderForm.laboratoryId} className="flex-1 bg-purple-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-purple-700 disabled:opacity-50">
                 {labOrderSubmitting ? "保存中..." : "保存してPDF生成"}
               </button>
             </div>

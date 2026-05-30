@@ -7,7 +7,7 @@ const BORDER = "#1a3560";
 const LINE = "#aab8cc";
 
 const CLINIC_POSTAL  = "〒650-0021";
-const CLINIC_ADDRESS = "兵庫県神戸市中央区三宮町１−６−１１　三宮本通ビル2階";
+const CLINIC_ADDRESS = "兵庫県神戸市中央区三宮町１−６−１１ 三宮本通ビル2階";
 const CLINIC_TEL     = "Tel: 078-381-9085";
 
 const styles = StyleSheet.create({
