@@ -5,6 +5,7 @@ import {
   DndContext,
   DragEndEvent,
   PointerSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   closestCenter,
@@ -14,6 +15,7 @@ import {
   useSortable,
   verticalListSortingStrategy,
   arrayMove,
+  sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { CategoryWithTreatments, TreatmentItem, TreatmentOption } from "@/lib/types";
@@ -736,6 +738,59 @@ interface LabMaterial {
   id: number;
   name: string;
   isActive: boolean;
+  sortOrder: number;
+}
+
+function SortableMaterialRow({ mat, editingId, editName, setEditName, setEditingId, updateMaterial, toggleActive, deleteMaterial }: {
+  mat: LabMaterial;
+  editingId: number | null;
+  editName: string;
+  setEditName: (v: string) => void;
+  setEditingId: (v: number | null) => void;
+  updateMaterial: (id: number) => void;
+  toggleActive: (mat: LabMaterial) => void;
+  deleteMaterial: (id: number) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: mat.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`rounded-lg border px-4 py-3 flex items-center gap-3 ${isDragging ? "shadow-lg z-10 bg-white" : !mat.isActive ? "opacity-50 bg-gray-50 border-gray-100" : "bg-white border-gray-200"}`}
+    >
+      {editingId !== mat.id && (
+        <button {...attributes} {...listeners} type="button" className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none shrink-0" tabIndex={-1}>
+          <GripIcon />
+        </button>
+      )}
+      {editingId === mat.id ? (
+        <>
+          <input
+            type="text"
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            className="border rounded px-2 py-1 text-sm flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            autoFocus
+            onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && updateMaterial(mat.id)}
+          />
+          <button type="button" onClick={() => updateMaterial(mat.id)} className="text-xs text-blue-600 hover:text-blue-800">保存</button>
+          <button type="button" onClick={() => setEditingId(null)} className="text-xs text-gray-400 hover:text-gray-600">キャンセル</button>
+        </>
+      ) : (
+        <>
+          <span className="flex-1 text-sm font-medium text-gray-800">{mat.name}</span>
+          {!mat.isActive && <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">無効</span>}
+          <button type="button" onClick={() => { setEditingId(mat.id); setEditName(mat.name); }} className="text-xs text-blue-500 hover:text-blue-700">編集</button>
+          <button type="button" onClick={() => toggleActive(mat)} className={`text-xs ${mat.isActive ? "text-orange-400 hover:text-orange-600" : "text-green-500 hover:text-green-700"}`}>
+            {mat.isActive ? "無効化" : "有効化"}
+          </button>
+          <button type="button" onClick={() => deleteMaterial(mat.id)} className="text-xs text-red-400 hover:text-red-600">削除</button>
+        </>
+      )}
+    </div>
+  );
 }
 
 function MaterialsTab() {
@@ -745,11 +800,28 @@ function MaterialsTab() {
   const [editName, setEditName] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+
   useEffect(() => { loadMaterials(); }, []);
 
   async function loadMaterials() {
     const res = await fetch("/api/lab-materials");
     setMaterials(await res.json());
+  }
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = materials.findIndex((m) => m.id === Number(active.id));
+    const newIdx = materials.findIndex((m) => m.id === Number(over.id));
+    if (oldIdx === -1 || newIdx === -1) return;
+    const reordered = arrayMove(materials, oldIdx, newIdx);
+    setMaterials(reordered);
+    await fetch("/api/lab-materials/reorder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(reordered.map((m, i) => ({ id: m.id, sortOrder: i }))),
+    });
   }
 
   async function addMaterial() {
@@ -817,37 +889,26 @@ function MaterialsTab() {
         </div>
       </div>
 
-      <div className="space-y-2">
-        {materials.length === 0 && <p className="text-sm text-gray-400">素材が登録されていません</p>}
-        {materials.map((mat) => (
-          <div key={mat.id} className={`rounded-lg border px-4 py-3 flex items-center gap-3 ${!mat.isActive ? "opacity-50 bg-gray-50 border-gray-100" : "bg-white border-gray-200"}`}>
-            {editingId === mat.id ? (
-              <>
-                <input
-                  type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="border rounded px-2 py-1 text-sm flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                  autoFocus
-                  onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && updateMaterial(mat.id)}
-                />
-                <button type="button" onClick={() => updateMaterial(mat.id)} className="text-xs text-blue-600 hover:text-blue-800">保存</button>
-                <button type="button" onClick={() => setEditingId(null)} className="text-xs text-gray-400 hover:text-gray-600">キャンセル</button>
-              </>
-            ) : (
-              <>
-                <span className="flex-1 text-sm font-medium text-gray-800">{mat.name}</span>
-                {!mat.isActive && <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">無効</span>}
-                <button type="button" onClick={() => { setEditingId(mat.id); setEditName(mat.name); }} className="text-xs text-blue-500 hover:text-blue-700">編集</button>
-                <button type="button" onClick={() => toggleActive(mat)} className={`text-xs ${mat.isActive ? "text-orange-400 hover:text-orange-600" : "text-green-500 hover:text-green-700"}`}>
-                  {mat.isActive ? "無効化" : "有効化"}
-                </button>
-                <button type="button" onClick={() => deleteMaterial(mat.id)} className="text-xs text-red-400 hover:text-red-600">削除</button>
-              </>
-            )}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={materials.map((m) => m.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-2">
+            {materials.length === 0 && <p className="text-sm text-gray-400">素材が登録されていません</p>}
+            {materials.map((mat) => (
+              <SortableMaterialRow
+                key={mat.id}
+                mat={mat}
+                editingId={editingId}
+                editName={editName}
+                setEditName={setEditName}
+                setEditingId={setEditingId}
+                updateMaterial={updateMaterial}
+                toggleActive={toggleActive}
+                deleteMaterial={deleteMaterial}
+              />
+            ))}
           </div>
-        ))}
-      </div>
+        </SortableContext>
+      </DndContext>
     </div>
   );
 }
