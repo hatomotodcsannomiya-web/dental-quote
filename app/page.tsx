@@ -100,7 +100,7 @@ export default function TopPage() {
                     <input
                       type="text"
                       value={form.code}
-                      onChange={(e) => { const v = e.target.value.replace(/[^\x00-\x7F]/g, ""); setForm((f) => ({ ...f, code: v })); setCodeConflict(null); }}
+                      onChange={(e) => { const v = e.target.value.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[^\x00-\x7F]/g, ""); setForm((f) => ({ ...f, code: v })); setCodeConflict(null); }}
                       onBlur={(e) => checkCodeDuplicate(e.target.value)}
                       placeholder="例：P001"
                       autoFocus
