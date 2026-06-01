@@ -182,7 +182,7 @@ export default function TreatmentAssigner({ toothId, toothLabel, categories, onA
             disabled={!selectedTreatmentId}
             className="text-sm bg-blue-500 text-white rounded px-4 py-2 hover:bg-blue-600 disabled:opacity-40"
           >
-            追加
+            確定
           </button>
         </div>
       </div>
