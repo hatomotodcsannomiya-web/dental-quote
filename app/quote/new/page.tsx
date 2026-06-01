@@ -43,6 +43,7 @@ function QuoteNewInner() {
   const [discountTypes, setDiscountTypes] = useState<{ id: number; name: string; discountPercent: number; discountAmount: number }[]>([]);
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [selectedDiscountId, setSelectedDiscountId] = useState<number | null>(null);
+  const [customDiscountAmount, setCustomDiscountAmount] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -85,20 +86,26 @@ function QuoteNewInner() {
   }, []);
 
   function applyDiscount() {
-    if (!selectedDiscountId) return;
-    const dtype = discountTypes.find((d) => d.id === selectedDiscountId);
-    if (!dtype) return;
     let discountAmount: number;
     let label: string;
-    if (dtype.discountAmount > 0) {
-      discountAmount = dtype.discountAmount;
-      label = `${dtype.name}（-¥${dtype.discountAmount.toLocaleString()}）`;
+    if (!selectedDiscountId) {
+      const amt = parseInt(customDiscountAmount.replace(/,/g, ""), 10);
+      if (!amt || amt <= 0) return;
+      discountAmount = amt;
+      label = `割引（-¥${amt.toLocaleString()}）`;
     } else {
-      const baseSubtotal = items
-        .filter((i) => i.toothId !== "__discount__")
-        .reduce((s, i) => s + i.unitPrice * i.quantity, 0);
-      discountAmount = Math.floor(baseSubtotal * (dtype.discountPercent / 100));
-      label = `${dtype.name}（-${dtype.discountPercent}%）`;
+      const dtype = discountTypes.find((d) => d.id === selectedDiscountId);
+      if (!dtype) return;
+      if (dtype.discountAmount > 0) {
+        discountAmount = dtype.discountAmount;
+        label = `${dtype.name}（-¥${dtype.discountAmount.toLocaleString()}）`;
+      } else {
+        const baseSubtotal = items
+          .filter((i) => i.toothId !== "__discount__")
+          .reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+        discountAmount = Math.floor(baseSubtotal * (dtype.discountPercent / 100));
+        label = `${dtype.name}（-${dtype.discountPercent}%）`;
+      }
     }
     const discountItem: QuoteLineItem = {
       toothId: "__discount__",
@@ -112,6 +119,7 @@ function QuoteNewInner() {
     setItems((prev) => [...prev.filter((i) => i.toothId !== "__discount__"), discountItem]);
     setShowDiscountModal(false);
     setSelectedDiscountId(null);
+    setCustomDiscountAmount("");
   }
 
   async function saveQuote() {
@@ -407,7 +415,21 @@ function QuoteNewInner() {
                       </td>
                       <td className="py-2 px-3 text-gray-500 text-xs">{item.isOption ? "" : item.categoryName}</td>
                       <td className="py-2 px-3 text-right">{item.quantity}</td>
-                      <td className={`py-2 px-3 text-right ${isDiscount ? "text-red-600" : ""}`}>¥{item.unitPrice.toLocaleString()}</td>
+                      <td className={`py-2 px-3 text-right ${isDiscount ? "text-red-600" : ""}`}>
+                        {isDiscount ? (
+                          <span className="flex items-center justify-end gap-0.5">
+                            -¥<input
+                              type="number"
+                              min={0}
+                              value={-item.unitPrice}
+                              onChange={(e) => updateItem(i, { unitPrice: -Math.max(0, Number(e.target.value)) })}
+                              className="w-20 text-right border border-red-200 rounded px-1 py-0.5 text-red-600 bg-white focus:outline-none focus:ring-1 focus:ring-red-400 text-sm"
+                            />
+                          </span>
+                        ) : (
+                          <>¥{item.unitPrice.toLocaleString()}</>
+                        )}
+                      </td>
                       <td className={`py-2 px-3 text-right font-medium ${isDiscount ? "text-red-600" : ""}`}>¥{lineTotal.toLocaleString()}</td>
                       <td className="py-2 px-2 text-center">
                         <button type="button" onClick={() => removeItem(i)} className="text-red-300 hover:text-red-500 text-base font-bold leading-none">×</button>
@@ -528,7 +550,7 @@ function QuoteNewInner() {
             <p className="text-xs text-gray-400 mb-4">
               割引前小計 ¥{items.filter((i) => i.toothId !== "__discount__").reduce((s, i) => s + i.unitPrice * i.quantity, 0).toLocaleString()} に対して適用されます。
             </p>
-            <div className="space-y-2 mb-5">
+            <div className="space-y-2 mb-4">
               {discountTypes.map((d) => {
                 const base = items.filter((i) => i.toothId !== "__discount__").reduce((s, i) => s + i.unitPrice * i.quantity, 0);
                 const isFixed = d.discountAmount > 0;
@@ -538,7 +560,7 @@ function QuoteNewInner() {
                   <button
                     key={d.id}
                     type="button"
-                    onClick={() => setSelectedDiscountId(d.id)}
+                    onClick={() => { setSelectedDiscountId(d.id); setCustomDiscountAmount(""); }}
                     className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm transition-all ${selectedDiscountId === d.id ? "border-red-400 bg-red-50 text-red-700 font-semibold" : "border-gray-200 hover:border-red-200 hover:bg-red-50"}`}
                   >
                     <span>{d.name}</span>
@@ -547,9 +569,23 @@ function QuoteNewInner() {
                 );
               })}
             </div>
+            <div className="border-t border-gray-100 pt-3 mb-4">
+              <p className="text-xs text-gray-500 mb-1.5">金額を直接入力</p>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-red-600 font-medium">-¥</span>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="例：5000"
+                  value={customDiscountAmount}
+                  onChange={(e) => { setCustomDiscountAmount(e.target.value); setSelectedDiscountId(null); }}
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
+                />
+              </div>
+            </div>
             <div className="flex gap-3">
-              <button type="button" onClick={() => { setShowDiscountModal(false); setSelectedDiscountId(null); }} className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50">キャンセル</button>
-              <button type="button" onClick={applyDiscount} disabled={!selectedDiscountId} className="flex-1 bg-red-500 text-white py-2 rounded-xl text-sm font-semibold hover:bg-red-600 disabled:opacity-50">適用する</button>
+              <button type="button" onClick={() => { setShowDiscountModal(false); setSelectedDiscountId(null); setCustomDiscountAmount(""); }} className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50">キャンセル</button>
+              <button type="button" onClick={applyDiscount} disabled={!selectedDiscountId && !customDiscountAmount} className="flex-1 bg-red-500 text-white py-2 rounded-xl text-sm font-semibold hover:bg-red-600 disabled:opacity-50">適用する</button>
             </div>
           </div>
         </div>
