@@ -234,6 +234,9 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
   const [quoteDeleteConfirmId, setQuoteDeleteConfirmId] = useState<number | null>(null);
   const [deletingQuoteId, setDeletingQuoteId] = useState<number | null>(null);
   const [pdfLoadingId, setPdfLoadingId] = useState<number | null>(null);
+  const [quoteMemoEditId, setQuoteMemoEditId] = useState<number | null>(null);
+  const [quoteMemoText, setQuoteMemoText] = useState("");
+  const [quoteMemoSaving, setQuoteMemoSaving] = useState(false);
 
   const [warrantyEditData, setWarrantyEditData] = useState<{ quote: Quote; items: WarrantyItem[] } | null>(null);
   const [warrantySubmitting, setWarrantySubmitting] = useState(false);
@@ -350,6 +353,18 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     setDeletingQuoteId(null);
     setQuoteDeleteConfirmId(null);
     if (expandedQuoteId === quoteId) setExpandedQuoteId(null);
+    load();
+  }
+
+  async function saveQuoteMemo(quoteId: number) {
+    setQuoteMemoSaving(true);
+    await fetch(`/api/quotes/${quoteId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memo: quoteMemoText || null }),
+    });
+    setQuoteMemoSaving(false);
+    setQuoteMemoEditId(null);
     load();
   }
 
@@ -753,7 +768,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                           })}
                         </tbody>
                       </table>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between mb-3">
                         <div className="text-xs text-gray-500 space-x-4">
                           <span>税抜 ¥{quote.subtotal.toLocaleString()}</span>
                           <span>税 ¥{quote.tax.toLocaleString()}</span>
@@ -766,6 +781,44 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                             {pdfLoadingId === quote.id ? "生成中..." : "見積PDF"}
                           </button>
                         </div>
+                      </div>
+                      {/* メモ（印刷対象外） */}
+                      <div className="border-t border-gray-100 pt-3">
+                        {quoteMemoEditId === quote.id ? (
+                          <div className="space-y-2">
+                            <textarea
+                              value={quoteMemoText}
+                              onChange={(e) => setQuoteMemoText(e.target.value)}
+                              placeholder="メモを入力（印刷には含まれません）"
+                              rows={3}
+                              autoFocus
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+                            />
+                            <div className="flex gap-2 justify-end">
+                              <button type="button" onClick={() => setQuoteMemoEditId(null)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1 border border-gray-200 rounded-lg">キャンセル</button>
+                              <button type="button" onClick={() => saveQuoteMemo(quote.id)} disabled={quoteMemoSaving} className="text-xs bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                                {quoteMemoSaving ? "保存中..." : "保存"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-start gap-2">
+                            <div className="flex-1 min-w-0">
+                              {quote.memo ? (
+                                <p className="text-xs text-gray-500 whitespace-pre-wrap">{quote.memo}</p>
+                              ) : (
+                                <p className="text-xs text-gray-300">メモなし（印刷には含まれません）</p>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => { setQuoteMemoEditId(quote.id); setQuoteMemoText(quote.memo ?? ""); }}
+                              className="text-xs text-blue-400 hover:text-blue-600 border border-blue-200 px-2 py-0.5 rounded shrink-0"
+                            >
+                              メモ編集
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
