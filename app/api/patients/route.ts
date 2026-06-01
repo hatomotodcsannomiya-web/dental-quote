@@ -4,6 +4,15 @@ import { NextRequest } from "next/server";
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q") ?? "";
+  const exactCode = searchParams.get("exact_code");
+
+  if (exactCode) {
+    const patient = await prisma.patient.findUnique({
+      where: { code: exactCode.trim() },
+      include: { _count: { select: { quotes: true } } },
+    });
+    return Response.json(patient ?? null);
+  }
 
   const patients = await prisma.patient.findMany({
     where: q

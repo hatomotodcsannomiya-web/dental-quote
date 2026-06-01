@@ -10,6 +10,20 @@ export default function TopPage() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const [codeConflict, setCodeConflict] = useState<{ id: number; name: string; code: string } | null>(null);
+  const [checkingCode, setCheckingCode] = useState(false);
+
+  async function checkCodeDuplicate(code: string) {
+    if (!code.trim()) { setCodeConflict(null); return; }
+    setCheckingCode(true);
+    try {
+      const res = await fetch(`/api/patients?exact_code=${encodeURIComponent(code.trim())}`);
+      const data = await res.json();
+      setCodeConflict(data ?? null);
+    } finally {
+      setCheckingCode(false);
+    }
+  }
 
   async function handleCreatePatient(e: React.FormEvent) {
     e.preventDefault();
@@ -17,6 +31,7 @@ export default function TopPage() {
       setError("患者番号と氏名は必須です");
       return;
     }
+    if (codeConflict) return;
     setSaving(true);
     setError("");
     try {
@@ -85,11 +100,27 @@ export default function TopPage() {
                     <input
                       type="text"
                       value={form.code}
-                      onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
+                      onChange={(e) => { setForm((f) => ({ ...f, code: e.target.value })); setCodeConflict(null); }}
+                      onBlur={(e) => checkCodeDuplicate(e.target.value)}
                       placeholder="例：P001"
                       autoFocus
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 ${codeConflict ? "border-amber-400 focus:ring-amber-300 bg-amber-50" : "border-gray-300 focus:ring-blue-400"}`}
                     />
+                    {checkingCode && (
+                      <p className="text-xs text-gray-400 mt-1">確認中...</p>
+                    )}
+                    {codeConflict && (
+                      <div className="mt-1.5 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 text-xs">
+                        <p className="text-amber-800 font-semibold mb-1">この患者番号は既に登録されています</p>
+                        <p className="text-amber-700 mb-1.5">患者名：{codeConflict.name}</p>
+                        <a
+                          href={`/patients/${codeConflict.id}`}
+                          className="inline-block bg-amber-500 text-white px-3 py-1 rounded-md font-semibold hover:bg-amber-600 transition-colors"
+                        >
+                          {codeConflict.name} さんのページへ →
+                        </a>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">氏名 <span className="text-red-500">*</span></label>
@@ -115,14 +146,14 @@ export default function TopPage() {
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => { setShowNewPatient(false); setError(""); }}
+                      onClick={() => { setShowNewPatient(false); setError(""); setCodeConflict(null); }}
                       className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-lg text-sm hover:bg-gray-50"
                     >
                       キャンセル
                     </button>
                     <button
                       type="submit"
-                      disabled={saving}
+                      disabled={saving || !!codeConflict || checkingCode}
                       className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
                     >
                       {saving ? "登録中..." : "登録して続ける"}
