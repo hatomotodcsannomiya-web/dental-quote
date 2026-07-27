@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import PDFPreviewModal from "@/components/PDFPreviewModal";
-import { filterWarrantyItems, type WarrantyItem } from "@/lib/warrantyMap";
+import { filterWarrantyItems, WARRANTY_TABLE, type WarrantyItem } from "@/lib/warrantyMap";
 
 interface QuoteItem {
   id: number;
@@ -239,6 +239,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
   const [quoteMemoSaving, setQuoteMemoSaving] = useState(false);
 
   const [warrantyEditData, setWarrantyEditData] = useState<{ quote: Quote; items: WarrantyItem[] } | null>(null);
+  const [manualWarrantyForm, setManualWarrantyForm] = useState<{ items: WarrantyItem[] } | null>(null);
   const [warrantySubmitting, setWarrantySubmitting] = useState(false);
   const [previewPdf, setPreviewPdf] = useState<{ url: string; filename: string } | null>(null);
 
@@ -425,6 +426,63 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
       const url = URL.createObjectURL(blob);
       setPreviewPdf({ url, filename: `補綴保証書_${patient?.code}_${saved.id}.pdf` });
       setWarrantyEditData(null);
+      loadWarranties();
+    } finally {
+      setWarrantySubmitting(false);
+    }
+  }
+
+  // 保証書フォームを開く（独立作成）
+  function openManualWarrantyForm() {
+    const today = new Date().toISOString().slice(0, 10);
+    setManualWarrantyForm({
+      items: [{ toothLabel: "", treatmentName: "", warrantyCategory: WARRANTY_TABLE[0].category, treatmentDate: today }],
+    });
+  }
+
+  function addManualWarrantyItem() {
+    const today = new Date().toISOString().slice(0, 10);
+    setManualWarrantyForm((prev) => prev ? {
+      items: [...prev.items, { toothLabel: "", treatmentName: "", warrantyCategory: WARRANTY_TABLE[0].category, treatmentDate: today }],
+    } : null);
+  }
+
+  function removeManualWarrantyItem(idx: number) {
+    setManualWarrantyForm((prev) => prev ? { items: prev.items.filter((_, i) => i !== idx) } : null);
+  }
+
+  function updateManualWarrantyItem(idx: number, field: keyof WarrantyItem, value: string) {
+    setManualWarrantyForm((prev) => prev ? {
+      items: prev.items.map((item, i) => i === idx ? { ...item, [field]: value } : item),
+    } : null);
+  }
+
+  async function submitManualWarranty() {
+    if (!manualWarrantyForm) return;
+    const validItems = manualWarrantyForm.items.filter((it) => it.toothLabel && it.treatmentName);
+    if (validItems.length === 0) return;
+    setWarrantySubmitting(true);
+    try {
+      const issuedDate = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
+      const saveRes = await fetch("/api/warranties", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientId: patient?.id ?? null,
+          quoteId: null,
+          patientName: patient?.name ?? "",
+          patientCode: patient?.code ?? "",
+          issuedDate,
+          items: validItems,
+        }),
+      });
+      const saved = await saveRes.json();
+      const pdfRes = await fetch(`/api/warranties/${saved.id}/pdf`);
+      const blob = await pdfRes.blob();
+      const url = URL.createObjectURL(blob);
+      setPreviewPdf({ url, filename: `補綴保証書_${patient?.code}_${saved.id}.pdf` });
+      setManualWarrantyForm(null);
+      setOpenToothSelectorIdx(null);
       loadWarranties();
     } finally {
       setWarrantySubmitting(false);
@@ -698,6 +756,16 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             技工指示書を作成
+          </button>
+          <button
+            type="button"
+            onClick={openManualWarrantyForm}
+            className="bg-emerald-600 text-white px-5 py-3 rounded-xl font-semibold text-sm hover:bg-emerald-700 shadow flex items-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            保証書を作成
           </button>
           <button
             type="button"
@@ -1164,6 +1232,111 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
             <div className="flex gap-3">
               <button type="button" onClick={() => setWarrantyEditData(null)} disabled={warrantySubmitting} className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50">キャンセル</button>
               <button type="button" onClick={submitWarrantyPDF} disabled={warrantySubmitting} className="flex-1 bg-emerald-600 text-white py-2 rounded-xl text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50">{warrantySubmitting ? "保存中..." : "保存して生成"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== 保証書作成モーダル（独立作成） ===== */}
+      {manualWarrantyForm && (
+        <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl my-4">
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+              <h2 className="text-base font-bold text-gray-800">保証書を作成</h2>
+              <button type="button" onClick={() => { setManualWarrantyForm(null); setOpenToothSelectorIdx(null); }} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+            </div>
+
+            <div className="px-6 py-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-gray-600">保証内容</p>
+                <button type="button" onClick={addManualWarrantyItem} className="text-xs text-emerald-600 hover:text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded">
+                  + 行を追加
+                </button>
+              </div>
+              <div className="space-y-3">
+                {manualWarrantyForm.items.map((item, i) => (
+                  <div key={i} className="border border-gray-200 rounded-xl p-3 space-y-2 bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-emerald-700">#{i + 1}</span>
+                      <button type="button" onClick={() => removeManualWarrantyItem(i)} disabled={manualWarrantyForm.items.length <= 1} className="text-xs text-red-400 hover:text-red-600 disabled:opacity-30">削除</button>
+                    </div>
+                    {/* 部位（歯式チャート） */}
+                    <div>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <label className="text-xs text-gray-400">部位</label>
+                        <button
+                          type="button"
+                          onClick={() => setOpenToothSelectorIdx(openToothSelectorIdx === i ? null : i)}
+                          className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${openToothSelectorIdx === i ? "bg-emerald-600 text-white border-emerald-600" : "border-emerald-200 text-emerald-600 hover:bg-emerald-50"}`}
+                        >
+                          {openToothSelectorIdx === i ? "閉じる" : "歯を選択"}
+                        </button>
+                      </div>
+                      <div
+                        className="text-xs px-2 py-1.5 rounded-lg border border-gray-200 bg-white min-h-[30px] cursor-pointer break-all leading-relaxed"
+                        onClick={() => setOpenToothSelectorIdx(openToothSelectorIdx === i ? null : i)}
+                      >
+                        {item.toothLabel
+                          ? <span className="text-blue-700 font-medium">{item.toothLabel}</span>
+                          : <span className="text-gray-300">未選択</span>}
+                      </div>
+                      {openToothSelectorIdx === i && (
+                        <ToothChartSelector
+                          value={item.toothLabel}
+                          onChange={(v) => updateManualWarrantyItem(i, "toothLabel", v)}
+                        />
+                      )}
+                    </div>
+                    {/* 保証区分 */}
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-0.5">保証区分</label>
+                      <select
+                        value={item.warrantyCategory}
+                        onChange={(e) => updateManualWarrantyItem(i, "warrantyCategory", e.target.value)}
+                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs w-full bg-white focus:outline-none focus:ring-1 focus:ring-emerald-300"
+                      >
+                        {WARRANTY_TABLE.map((row) => <option key={row.category} value={row.category}>{row.category}</option>)}
+                      </select>
+                    </div>
+                    {/* 治療内容 + セット日 */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-0.5">治療内容</label>
+                        <input
+                          type="text"
+                          value={item.treatmentName}
+                          onChange={(e) => updateManualWarrantyItem(i, "treatmentName", e.target.value)}
+                          placeholder="例：ジルコニアクラウン"
+                          className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs w-full bg-white focus:outline-none focus:ring-1 focus:ring-emerald-300"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-0.5">セット日</label>
+                        <input
+                          type="date"
+                          value={item.treatmentDate}
+                          onChange={(e) => updateManualWarrantyItem(i, "treatmentDate", e.target.value)}
+                          className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs w-full bg-white focus:outline-none focus:ring-1 focus:ring-emerald-300"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-3 px-6 pb-5">
+              <button type="button" onClick={() => { setManualWarrantyForm(null); setOpenToothSelectorIdx(null); }} disabled={warrantySubmitting} className="flex-1 border border-gray-300 text-gray-600 py-2.5 rounded-xl text-sm hover:bg-gray-50 disabled:opacity-50">
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={submitManualWarranty}
+                disabled={warrantySubmitting || manualWarrantyForm.items.every((it) => !it.toothLabel || !it.treatmentName)}
+                className="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {warrantySubmitting ? "保存中..." : "保存してPDF生成"}
+              </button>
             </div>
           </div>
         </div>
